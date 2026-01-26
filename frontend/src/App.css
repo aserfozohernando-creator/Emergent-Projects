@@ -1,34 +1,47 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* App-specific styles */
+.App {
+  min-height: 100vh;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+/* Font family override for headings */
+.font-syne {
+  font-family: 'Syne', sans-serif;
 }
 
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
 }
 
-.App-link {
-    color: #61dafb;
+/* Selection styling */
+::selection {
+  background-color: rgba(0, 240, 255, 0.3);
+  color: #fafafa;
 }
 
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Focus visible styling */
+*:focus-visible {
+  outline: 2px solid #00F0FF;
+  outline-offset: 2px;
+}
+
+/* Button active state */
+button:active {
+  transform: scale(0.98);
+}
+
+/* Image loading placeholder */
+img {
+  background-color: #1a1a1a;
+}
+
+/* Map container aspect ratio */
+.map-container {
+  aspect-ratio: 16 / 9;
+}
+
+@media (max-width: 768px) {
+  .map-container {
+    aspect-ratio: 4 / 3;
+  }
 }
