@@ -1,7 +1,8 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, Heart, Radio, Loader2 } from 'lucide-react';
+import { Play, Pause, Heart, Radio, Loader2, Zap } from 'lucide-react';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 
 const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
   const { currentStation, isPlaying, isLoading, playStation } = usePlayer();
