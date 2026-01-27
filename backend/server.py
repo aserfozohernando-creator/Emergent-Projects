@@ -223,16 +223,20 @@ async def fetch_tunein_stations(query: str = None, genre: str = None, limit: int
                     "state": "",
                     "language": "",
                     "languagecodes": "",
-                        "votes": 0,
-                        "codec": outline.get('formats', ''),
-                        "bitrate": int(outline.get('bitrate', 0)) if outline.get('bitrate', '').isdigit() else 0,
-                        "tags": outline.get('genre_id', ''),
-                        "clickcount": int(outline.get('playing_image', '0').replace(',', '')) if outline.get('playing_image', '').replace(',', '').isdigit() else 0,
-                        "source": "tunein"
-                    }
-                    stations.append(station)
+                    "votes": 0,
+                    "codec": data['formats'],
+                    "bitrate": int(data['bitrate']) if data['bitrate'].isdigit() else 0,
+                    "tags": data['genre_id'],
+                    "clickcount": 0,
+                    "source": "tunein"
+                }
             
-            return stations
+            # Process stations (limit parallel requests)
+            tasks = [process_station(data) for data in station_data[:limit]]
+            stations = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Filter out exceptions
+            return [s for s in stations if isinstance(s, dict)]
             
         except Exception as e:
             logger.error(f"TuneIn API error: {e}")
