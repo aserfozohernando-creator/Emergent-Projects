@@ -64,11 +64,19 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
         <p className="text-xs md:text-sm text-muted-foreground truncate">
           {station.country}
         </p>
-        {station.tags && (
-          <p className="text-xs text-muted-foreground/70 truncate mt-0.5">
-            {station.tags.split(',').slice(0, 2).join(' • ')}
-          </p>
-        )}
+        <div className="flex items-center gap-2 mt-0.5">
+          {station.tags && (
+            <p className="text-xs text-muted-foreground/70 truncate">
+              {station.tags.split(',').slice(0, 2).join(' • ')}
+            </p>
+          )}
+          {station.source === 'tunein' && (
+            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-secondary/50 text-secondary">
+              <Zap className="w-2 h-2 mr-0.5" />
+              TuneIn
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Favorite Button */}
