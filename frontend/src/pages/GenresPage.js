@@ -108,22 +108,22 @@ const GenresPage = () => {
   };
 
   return (
-    <div data-testid="genres-page" className="min-h-screen pt-16 pb-28">
-      <div className="container mx-auto px-4 md:px-8 py-6 md:py-8">
+    <div data-testid="genres-page" className="min-h-screen pt-16 pb-32 md:pb-28">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 md:py-6">
         {!selectedGenre ? (
           <>
             {/* Genre Grid View */}
-            <div className="mb-6 md:mb-8">
-              <div className="flex items-center gap-3 mb-2">
-                <Music2 className="w-6 h-6 text-primary" />
-                <h1 className="text-3xl md:text-4xl font-bold font-syne">Browse by Genre</h1>
+            <div className="mb-4 md:mb-6">
+              <div className="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2">
+                <Music2 className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold font-syne">Browse by Genre</h1>
               </div>
-              <p className="text-muted-foreground text-sm md:text-base">
+              <p className="text-muted-foreground text-xs sm:text-sm md:text-base">
                 Explore radio stations by your favorite music genre
               </p>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-6">
               {GENRES.map((genre) => (
                 <GenreCard
                   key={genre}
@@ -136,18 +136,18 @@ const GenresPage = () => {
         ) : (
           <>
             {/* Genre Stations View */}
-            <div className="mb-6">
+            <div className="mb-4 md:mb-6">
               <Button
                 data-testid="back-to-genres"
                 variant="ghost"
                 onClick={goBack}
-                className="mb-4"
+                className="mb-3 sm:mb-4 h-8 sm:h-9 text-xs sm:text-sm"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Back to Genres
               </Button>
 
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold font-syne capitalize">
                     {selectedGenre} Stations
