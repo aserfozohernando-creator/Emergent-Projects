@@ -10,6 +10,9 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 import httpx
+import xml.etree.ElementTree as ET
+import asyncio
+import hashlib
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,8 +28,10 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Radio Browser API base URL
+# API endpoints
 RADIO_BROWSER_API = "https://de1.api.radio-browser.info/json"
+RADIO_BROWSER_API_BACKUP = "https://nl1.api.radio-browser.info/json"
+TUNEIN_API = "https://opml.radiotime.com"
 
 # Configure logging
 logging.basicConfig(
@@ -54,6 +59,7 @@ class Station(BaseModel):
     bitrate: int = 0
     tags: Optional[str] = ""
     clickcount: int = 0
+    source: Optional[str] = "radio-browser"  # Track which API the station came from
 
 class FavoriteStation(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -86,6 +92,17 @@ REGIONS = {
     "oceania": ["AU", "NZ", "FJ", "PG"]
 }
 
+# Country code to full name mapping for TuneIn
+COUNTRY_NAMES = {
+    "US": "United States", "GB": "United Kingdom", "DE": "Germany", "FR": "France",
+    "IT": "Italy", "ES": "Spain", "NL": "Netherlands", "PL": "Poland", "SE": "Sweden",
+    "NO": "Norway", "DK": "Denmark", "FI": "Finland", "AT": "Austria", "CH": "Switzerland",
+    "PT": "Portugal", "IE": "Ireland", "GR": "Greece", "CZ": "Czech Republic",
+    "HU": "Hungary", "RO": "Romania", "UA": "Ukraine", "RU": "Russia", "JP": "Japan",
+    "KR": "South Korea", "CN": "China", "IN": "India", "AU": "Australia", "CA": "Canada",
+    "MX": "Mexico", "BR": "Brazil", "AR": "Argentina"
+}
+
 # Popular genres
 GENRES = [
     "pop", "rock", "jazz", "classical", "electronic", "hip hop", "country", 
@@ -93,12 +110,14 @@ GENRES = [
     "dance", "ambient", "world", "news", "talk", "sports"
 ]
 
-async def fetch_radio_browser(endpoint: str, params: dict = None) -> list:
-    """Fetch data from Radio Browser API"""
-    async with httpx.AsyncClient(timeout=30.0) as http_client:
+async def fetch_radio_browser(endpoint: str, params: dict = None, use_backup: bool = False) -> list:
+    """Fetch data from Radio Browser API with fallback"""
+    api_url = RADIO_BROWSER_API_BACKUP if use_backup else RADIO_BROWSER_API
+    
+    async with httpx.AsyncClient(timeout=15.0) as http_client:
         try:
             response = await http_client.get(
-                f"{RADIO_BROWSER_API}/{endpoint}",
+                f"{api_url}/{endpoint}",
                 params=params,
                 headers={"User-Agent": "GlobalRadioStation/1.0"}
             )
@@ -106,23 +125,96 @@ async def fetch_radio_browser(endpoint: str, params: dict = None) -> list:
             return response.json()
         except httpx.HTTPError as e:
             logger.error(f"Radio Browser API error: {e}")
+            # Try backup if primary fails
+            if not use_backup:
+                return await fetch_radio_browser(endpoint, params, use_backup=True)
             raise HTTPException(status_code=502, detail="Failed to fetch radio stations")
 
-# API Routes
-@api_router.get("/")
-async def root():
-    return {"message": "Global Radio Station API"}
+async def fetch_tunein_stations(query: str = None, genre: str = None) -> list:
+    """Fetch stations from TuneIn API"""
+    stations = []
+    
+    async with httpx.AsyncClient(timeout=15.0) as http_client:
+        try:
+            # Build search URL
+            if query:
+                url = f"{TUNEIN_API}/Search.ashx"
+                params = {"query": query}
+            elif genre:
+                url = f"{TUNEIN_API}/Browse.ashx"
+                params = {"c": "music", "filter": genre}
+            else:
+                url = f"{TUNEIN_API}/Browse.ashx"
+                params = {"c": "music"}
+            
+            response = await http_client.get(url, params=params)
+            response.raise_for_status()
+            
+            # Parse OPML/XML response
+            root = ET.fromstring(response.text)
+            
+            for outline in root.iter('outline'):
+                if outline.get('type') == 'audio' and outline.get('item') == 'station':
+                    # Skip unavailable stations
+                    if outline.get('key') == 'unavailable':
+                        continue
+                    
+                    stream_url = outline.get('URL', '')
+                    if not stream_url:
+                        continue
+                    
+                    # Generate a unique ID from the URL
+                    station_id = hashlib.md5(stream_url.encode()).hexdigest()
+                    
+                    station = {
+                        "stationuuid": f"tunein-{station_id}",
+                        "name": outline.get('text', 'Unknown Station'),
+                        "url": stream_url,
+                        "url_resolved": stream_url,
+                        "homepage": outline.get('guide_id', ''),
+                        "favicon": outline.get('image', ''),
+                        "country": outline.get('subtext', '').split(',')[-1].strip() if outline.get('subtext') else 'Unknown',
+                        "countrycode": "",
+                        "state": "",
+                        "language": "",
+                        "languagecodes": "",
+                        "votes": 0,
+                        "codec": outline.get('formats', ''),
+                        "bitrate": int(outline.get('bitrate', 0)) if outline.get('bitrate', '').isdigit() else 0,
+                        "tags": outline.get('genre_id', ''),
+                        "clickcount": int(outline.get('playing_image', '0').replace(',', '')) if outline.get('playing_image', '').replace(',', '').isdigit() else 0,
+                        "source": "tunein"
+                    }
+                    stations.append(station)
+            
+            return stations
+            
+        except Exception as e:
+            logger.error(f"TuneIn API error: {e}")
+            return []
 
-@api_router.get("/stations/search", response_model=List[Station])
-async def search_stations(
-    name: Optional[str] = Query(None),
-    country: Optional[str] = Query(None),
-    countrycode: Optional[str] = Query(None),
-    tag: Optional[str] = Query(None),
-    limit: int = Query(50, le=200),
-    offset: int = Query(0)
-):
-    """Search for radio stations"""
+async def verify_stream_url(url: str, timeout: float = 5.0) -> bool:
+    """Quick check if a stream URL is accessible"""
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as http_client:
+            response = await http_client.head(url, follow_redirects=True)
+            return response.status_code < 400
+    except:
+        return False
+
+async def get_combined_stations(
+    name: str = None,
+    country: str = None,
+    countrycode: str = None,
+    tag: str = None,
+    limit: int = 50,
+    offset: int = 0,
+    include_tunein: bool = True
+) -> list:
+    """Get stations from multiple sources and combine results"""
+    all_stations = []
+    
+    # Fetch from Radio Browser
     params = {
         "limit": limit,
         "offset": offset,
@@ -139,7 +231,58 @@ async def search_stations(
     if tag:
         params["tag"] = tag
     
-    stations = await fetch_radio_browser("stations/search", params)
+    try:
+        rb_stations = await fetch_radio_browser("stations/search", params)
+        for station in rb_stations:
+            station["source"] = "radio-browser"
+        all_stations.extend(rb_stations)
+    except Exception as e:
+        logger.error(f"Radio Browser fetch failed: {e}")
+    
+    # Fetch from TuneIn if enabled and we have a search query
+    if include_tunein and (name or tag):
+        try:
+            tunein_stations = await fetch_tunein_stations(query=name, genre=tag)
+            all_stations.extend(tunein_stations)
+        except Exception as e:
+            logger.error(f"TuneIn fetch failed: {e}")
+    
+    # Remove duplicates based on station name (case-insensitive)
+    seen_names = set()
+    unique_stations = []
+    for station in all_stations:
+        name_lower = station.get('name', '').lower()
+        if name_lower not in seen_names:
+            seen_names.add(name_lower)
+            unique_stations.append(station)
+    
+    return unique_stations[:limit]
+
+# API Routes
+@api_router.get("/")
+async def root():
+    return {"message": "Global Radio Station API", "sources": ["radio-browser", "tunein"]}
+
+@api_router.get("/stations/search", response_model=List[Station])
+async def search_stations(
+    name: Optional[str] = Query(None),
+    country: Optional[str] = Query(None),
+    countrycode: Optional[str] = Query(None),
+    tag: Optional[str] = Query(None),
+    limit: int = Query(50, le=200),
+    offset: int = Query(0),
+    include_tunein: bool = Query(True)
+):
+    """Search for radio stations from multiple sources"""
+    stations = await get_combined_stations(
+        name=name,
+        country=country,
+        countrycode=countrycode,
+        tag=tag,
+        limit=limit,
+        offset=offset,
+        include_tunein=include_tunein
+    )
     return stations
 
 @api_router.get("/stations/top", response_model=List[Station])
@@ -152,6 +295,8 @@ async def get_top_stations(limit: int = Query(50, le=200)):
         "hidebroken": "true"
     }
     stations = await fetch_radio_browser("stations/search", params)
+    for station in stations:
+        station["source"] = "radio-browser"
     return stations
 
 @api_router.get("/stations/by-country/{countrycode}", response_model=List[Station])
@@ -170,6 +315,8 @@ async def get_stations_by_country(
         "hidebroken": "true"
     }
     stations = await fetch_radio_browser("stations/search", params)
+    for station in stations:
+        station["source"] = "radio-browser"
     return stations
 
 @api_router.get("/stations/by-region/{region}", response_model=List[Station])
@@ -185,15 +332,15 @@ async def get_stations_by_region(
     country_codes = REGIONS[region_lower]
     all_stations = []
     
-    # Fetch stations from multiple countries
-    async with httpx.AsyncClient(timeout=30.0) as http_client:
-        for code in country_codes[:10]:  # Limit to 10 countries for performance
-            try:
+    # Fetch stations from multiple countries in parallel
+    async def fetch_country(code: str):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
                 response = await http_client.get(
                     f"{RADIO_BROWSER_API}/stations/search",
                     params={
                         "countrycode": code,
-                        "limit": 10,
+                        "limit": 15,
                         "order": "clickcount",
                         "reverse": "true",
                         "hidebroken": "true"
@@ -201,9 +348,20 @@ async def get_stations_by_region(
                     headers={"User-Agent": "GlobalRadioStation/1.0"}
                 )
                 if response.status_code == 200:
-                    all_stations.extend(response.json())
-            except Exception as e:
-                logger.warning(f"Failed to fetch stations for {code}: {e}")
+                    stations = response.json()
+                    for s in stations:
+                        s["source"] = "radio-browser"
+                    return stations
+        except Exception as e:
+            logger.warning(f"Failed to fetch stations for {code}: {e}")
+        return []
+    
+    # Fetch from first 12 countries in parallel
+    tasks = [fetch_country(code) for code in country_codes[:12]]
+    results = await asyncio.gather(*tasks)
+    
+    for stations in results:
+        all_stations.extend(stations)
     
     # Sort by clickcount and limit
     all_stations.sort(key=lambda x: x.get('clickcount', 0), reverse=True)
@@ -215,23 +373,33 @@ async def get_stations_by_genre(
     limit: int = Query(50, le=200),
     offset: int = Query(0)
 ):
-    """Get stations by genre/tag"""
-    params = {
-        "tag": genre.lower(),
-        "limit": limit,
-        "offset": offset,
-        "order": "clickcount",
-        "reverse": "true",
-        "hidebroken": "true"
-    }
-    stations = await fetch_radio_browser("stations/search", params)
+    """Get stations by genre/tag from multiple sources"""
+    stations = await get_combined_stations(
+        tag=genre.lower(),
+        limit=limit,
+        offset=offset,
+        include_tunein=True
+    )
     return stations
+
+@api_router.get("/stations/verify/{station_id}")
+async def verify_station(station_id: str):
+    """Verify if a station's stream is accessible"""
+    # Try to get station info from favorites or search
+    favorite = await db.favorites.find_one({"stationuuid": station_id}, {"_id": 0})
+    
+    if favorite:
+        url = favorite.get('url', '')
+        is_accessible = await verify_stream_url(url)
+        return {"station_id": station_id, "url": url, "is_accessible": is_accessible}
+    
+    return {"station_id": station_id, "is_accessible": None, "error": "Station not found in favorites"}
 
 @api_router.get("/countries")
 async def get_countries():
     """Get list of countries with station counts"""
     countries = await fetch_radio_browser("countries", {"order": "stationcount", "reverse": "true"})
-    return countries[:100]  # Top 100 countries
+    return countries[:100]
 
 @api_router.get("/tags")
 async def get_tags():
@@ -252,11 +420,30 @@ async def get_genres():
     """Get predefined genres"""
     return {"genres": GENRES}
 
+@api_router.get("/sources")
+async def get_sources():
+    """Get available radio station sources"""
+    return {
+        "sources": [
+            {
+                "id": "radio-browser",
+                "name": "Radio Browser",
+                "description": "Community database with 30,000+ stations",
+                "url": "https://www.radio-browser.info"
+            },
+            {
+                "id": "tunein",
+                "name": "TuneIn",
+                "description": "Popular radio streaming platform",
+                "url": "https://tunein.com"
+            }
+        ]
+    }
+
 # Favorites endpoints (stored in MongoDB)
 @api_router.post("/favorites", response_model=FavoriteStation)
 async def add_favorite(favorite: FavoriteCreate):
     """Add a station to favorites"""
-    # Check if already exists
     existing = await db.favorites.find_one({"stationuuid": favorite.stationuuid}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Station already in favorites")
