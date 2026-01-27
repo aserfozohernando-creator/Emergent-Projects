@@ -13,13 +13,13 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
   return (
     <div 
       data-testid={`station-card-${station.stationuuid}`}
-      className={`station-card group relative overflow-hidden rounded-xl bg-white/5 hover:bg-white/10 border ${
+      className={`station-card group relative overflow-visible rounded-xl bg-white/5 hover:bg-white/10 border ${
         isCurrentPlaying ? 'border-primary/50 bg-primary/5' : 'border-white/5 hover:border-primary/30'
-      } p-3 md:p-4 flex items-center gap-3 md:gap-4 cursor-pointer`}
+      } p-2 sm:p-3 flex items-center gap-2 sm:gap-3 cursor-pointer transition-all`}
       onClick={() => playStation(station)}
     >
       {/* Active indicator */}
-      <div className={`absolute left-0 top-0 bottom-0 w-1 bg-primary transition-opacity ${
+      <div className={`absolute left-0 top-0 bottom-0 w-1 bg-primary rounded-l-xl transition-opacity ${
         isCurrentPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-50'
       }`} />
 
@@ -29,7 +29,7 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
           <img 
             src={station.favicon} 
             alt={station.name}
-            className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-cover bg-muted group-hover:scale-105 transition-transform"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover bg-muted group-hover:scale-105 transition-transform"
             onError={(e) => {
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'flex';
@@ -37,9 +37,9 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
           />
         ) : null}
         <div 
-          className={`${station.favicon ? 'hidden' : 'flex'} w-12 h-12 md:w-14 md:h-14 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 items-center justify-center group-hover:scale-105 transition-transform`}
+          className={`${station.favicon ? 'hidden' : 'flex'} w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 items-center justify-center group-hover:scale-105 transition-transform`}
         >
-          <Radio className="w-6 h-6 text-primary" />
+          <Radio className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
         </div>
 
         {/* Play overlay on hover */}
@@ -47,31 +47,31 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
           isCurrentPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
         }`}>
           {isCurrentLoading ? (
-            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary animate-spin" />
           ) : isCurrentPlaying ? (
-            <Pause className="w-5 h-5 text-primary" />
+            <Pause className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           ) : (
-            <Play className="w-5 h-5 text-primary ml-0.5" />
+            <Play className="w-4 h-4 sm:w-5 sm:h-5 text-primary ml-0.5" />
           )}
         </div>
       </div>
 
       {/* Station Info */}
-      <div className="flex-1 min-w-0">
-        <h3 className="font-semibold text-sm md:text-base truncate text-foreground group-hover:text-primary transition-colors">
+      <div className="flex-1 min-w-0 overflow-hidden">
+        <h3 className="font-semibold text-xs sm:text-sm truncate text-foreground group-hover:text-primary transition-colors">
           {station.name}
         </h3>
-        <p className="text-xs md:text-sm text-muted-foreground truncate">
+        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
           {station.country}
         </p>
-        <div className="flex items-center gap-2 mt-0.5">
+        <div className="flex items-center gap-1 sm:gap-2 mt-0.5 flex-wrap">
           {station.tags && (
-            <p className="text-xs text-muted-foreground/70 truncate">
-              {station.tags.split(',').slice(0, 2).join(' • ')}
+            <p className="text-[10px] sm:text-xs text-muted-foreground/70 truncate max-w-[100px] sm:max-w-[150px]">
+              {station.tags.split(',').slice(0, 1).join('')}
             </p>
           )}
           {station.source === 'tunein' && (
-            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-secondary/50 text-secondary">
+            <Badge variant="outline" className="text-[8px] sm:text-[10px] px-1 py-0 h-3 sm:h-4 border-secondary/50 text-secondary flex-shrink-0">
               <Zap className="w-2 h-2 mr-0.5" />
               TuneIn
             </Badge>
@@ -84,13 +84,13 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
         data-testid={`favorite-btn-${station.stationuuid}`}
         variant="ghost"
         size="icon"
-        className={`flex-shrink-0 ${isFavorite ? 'text-secondary' : 'text-muted-foreground hover:text-secondary'}`}
+        className={`flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 ${isFavorite ? 'text-secondary' : 'text-muted-foreground hover:text-secondary'}`}
         onClick={(e) => {
           e.stopPropagation();
           onToggleFavorite(station);
         }}
       >
-        <Heart className={`w-4 h-4 md:w-5 md:h-5 ${isFavorite ? 'fill-current' : ''}`} />
+        <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${isFavorite ? 'fill-current' : ''}`} />
       </Button>
     </div>
   );
