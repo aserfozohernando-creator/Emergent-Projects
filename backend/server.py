@@ -130,11 +130,39 @@ async def fetch_radio_browser(endpoint: str, params: dict = None, use_backup: bo
                 return await fetch_radio_browser(endpoint, params, use_backup=True)
             raise HTTPException(status_code=502, detail="Failed to fetch radio stations")
 
-async def fetch_tunein_stations(query: str = None, genre: str = None) -> list:
+async def resolve_tunein_stream(tune_url: str, http_client: httpx.AsyncClient) -> str:
+    """Resolve TuneIn Tune.ashx URL to actual stream URL"""
+    try:
+        # TuneIn Tune.ashx returns a playlist (PLS or M3U) with the actual stream URL
+        response = await http_client.get(tune_url, follow_redirects=True)
+        content = response.text
+        
+        # Try to extract stream URL from PLS format
+        if '[playlist]' in content.lower():
+            for line in content.split('\n'):
+                if line.lower().startswith('file1='):
+                    return line.split('=', 1)[1].strip()
+        
+        # Try to extract from M3U format
+        for line in content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#') and (line.startswith('http://') or line.startswith('https://')):
+                return line
+        
+        # If response is already a direct URL
+        if response.url and str(response.url) != tune_url:
+            return str(response.url)
+            
+        return tune_url
+    except Exception as e:
+        logger.warning(f"Failed to resolve TuneIn URL {tune_url}: {e}")
+        return tune_url
+
+async def fetch_tunein_stations(query: str = None, genre: str = None, limit: int = 20) -> list:
     """Fetch stations from TuneIn API"""
     stations = []
     
-    async with httpx.AsyncClient(timeout=15.0) as http_client:
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as http_client:
         try:
             # Build search URL
             if query:
@@ -153,31 +181,48 @@ async def fetch_tunein_stations(query: str = None, genre: str = None) -> list:
             # Parse OPML/XML response
             root = ET.fromstring(response.text)
             
+            station_data = []
             for outline in root.iter('outline'):
                 if outline.get('type') == 'audio' and outline.get('item') == 'station':
                     # Skip unavailable stations
                     if outline.get('key') == 'unavailable':
                         continue
                     
-                    stream_url = outline.get('URL', '')
-                    if not stream_url:
+                    tune_url = outline.get('URL', '')
+                    if not tune_url:
                         continue
                     
-                    # Generate a unique ID from the URL
-                    station_id = hashlib.md5(stream_url.encode()).hexdigest()
+                    station_data.append({
+                        'tune_url': tune_url,
+                        'name': outline.get('text', 'Unknown Station'),
+                        'image': outline.get('image', ''),
+                        'subtext': outline.get('subtext', ''),
+                        'genre_id': outline.get('genre_id', ''),
+                        'bitrate': outline.get('bitrate', '0'),
+                        'formats': outline.get('formats', ''),
+                        'guide_id': outline.get('guide_id', '')
+                    })
                     
-                    station = {
-                        "stationuuid": f"tunein-{station_id}",
-                        "name": outline.get('text', 'Unknown Station'),
-                        "url": stream_url,
-                        "url_resolved": stream_url,
-                        "homepage": outline.get('guide_id', ''),
-                        "favicon": outline.get('image', ''),
-                        "country": outline.get('subtext', '').split(',')[-1].strip() if outline.get('subtext') else 'Unknown',
-                        "countrycode": "",
-                        "state": "",
-                        "language": "",
-                        "languagecodes": "",
+                    if len(station_data) >= limit:
+                        break
+            
+            # Resolve stream URLs in parallel (limit to prevent too many requests)
+            async def process_station(data):
+                stream_url = await resolve_tunein_stream(data['tune_url'], http_client)
+                station_id = hashlib.md5(stream_url.encode()).hexdigest()
+                
+                return {
+                    "stationuuid": f"tunein-{station_id}",
+                    "name": data['name'],
+                    "url": stream_url,
+                    "url_resolved": stream_url,
+                    "homepage": f"https://tunein.com/radio/{data['guide_id']}/",
+                    "favicon": data['image'],
+                    "country": data['subtext'].split(',')[-1].strip() if data['subtext'] else 'TuneIn',
+                    "countrycode": "",
+                    "state": "",
+                    "language": "",
+                    "languagecodes": "",
                         "votes": 0,
                         "codec": outline.get('formats', ''),
                         "bitrate": int(outline.get('bitrate', 0)) if outline.get('bitrate', '').isdigit() else 0,
