@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, Volume2, VolumeX, X, Radio, Loader2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Radio, Loader2, AlertCircle } from 'lucide-react';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
 
@@ -9,6 +9,7 @@ const AudioPlayer = () => {
     currentStation, 
     isPlaying, 
     isLoading, 
+    error,
     volume, 
     togglePlay, 
     stop, 
@@ -20,7 +21,9 @@ const AudioPlayer = () => {
   return (
     <div 
       data-testid="audio-player"
-      className="fixed bottom-0 left-0 right-0 h-20 md:h-24 glass-heavy z-50 border-t border-white/10"
+      className={`fixed bottom-0 left-0 right-0 h-20 md:h-24 glass-heavy z-50 border-t ${
+        error ? 'border-red-500/50' : 'border-white/10'
+      }`}
     >
       <div className="container mx-auto h-full px-4 md:px-8 flex items-center justify-between gap-4">
         {/* Station Info */}
@@ -44,7 +47,7 @@ const AudioPlayer = () => {
             </div>
             
             {/* Playing indicator */}
-            {isPlaying && !isLoading && (
+            {isPlaying && !isLoading && !error && (
               <div className="absolute -bottom-1 -right-1 flex gap-0.5 items-end h-4 p-1 bg-black/80 rounded">
                 <span className="w-1 bg-primary equalizer-bar rounded-full"></span>
                 <span className="w-1 bg-primary equalizer-bar rounded-full"></span>
@@ -52,17 +55,46 @@ const AudioPlayer = () => {
                 <span className="w-1 bg-primary equalizer-bar rounded-full"></span>
               </div>
             )}
+
+            {/* Error indicator */}
+            {error && (
+              <div className="absolute -bottom-1 -right-1 p-1 bg-red-500 rounded-full">
+                <AlertCircle className="w-3 h-3 text-white" />
+              </div>
+            )}
+
+            {/* Loading indicator */}
+            {isLoading && (
+              <div className="absolute -bottom-1 -right-1 p-1 bg-black/80 rounded-full">
+                <Loader2 className="w-3 h-3 text-primary animate-spin" />
+              </div>
+            )}
           </div>
           
           <div className="min-w-0">
             <h4 
               data-testid="now-playing-name"
-              className="font-semibold text-sm md:text-base truncate text-foreground"
+              className={`font-semibold text-sm md:text-base truncate ${
+                error ? 'text-red-400' : 'text-foreground'
+              }`}
             >
               {currentStation.name}
             </h4>
-            <p className="text-xs md:text-sm text-muted-foreground truncate">
-              {currentStation.country} {currentStation.tags && `• ${currentStation.tags.split(',')[0]}`}
+            <p className={`text-xs md:text-sm truncate ${
+              error ? 'text-red-400/70' : 'text-muted-foreground'
+            }`}>
+              {error ? (
+                <span className="flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  Stream unavailable
+                </span>
+              ) : isLoading ? (
+                'Connecting...'
+              ) : (
+                <>
+                  {currentStation.country} {currentStation.tags && `• ${currentStation.tags.split(',')[0]}`}
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -75,11 +107,15 @@ const AudioPlayer = () => {
             onClick={togglePlay}
             disabled={isLoading}
             size="icon"
-            className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground neon-glow"
+            className={`w-10 h-10 md:w-12 md:h-12 rounded-full ${
+              error 
+                ? 'bg-red-500 hover:bg-red-600' 
+                : 'bg-primary hover:bg-primary/90'
+            } text-primary-foreground neon-glow`}
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
-            ) : isPlaying ? (
+            ) : isPlaying && !error ? (
               <Pause className="w-5 h-5" />
             ) : (
               <Play className="w-5 h-5 ml-0.5" />
