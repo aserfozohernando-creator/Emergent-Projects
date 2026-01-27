@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 
 const PlayerContext = createContext(null);
 
@@ -17,20 +18,31 @@ export const PlayerProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const audioRef = useRef(new Audio());
+  const streamCheckTimeoutRef = useRef(null);
+  const hasReceivedDataRef = useRef(false);
 
   useEffect(() => {
     const audio = audioRef.current;
     audio.volume = volume;
+    audio.crossOrigin = "anonymous";
 
     const handleCanPlay = () => {
       setIsLoading(false);
       setError(null);
     };
 
-    const handleError = () => {
+    const handleError = (e) => {
+      console.error('Audio error:', e);
       setIsLoading(false);
       setIsPlaying(false);
-      setError('Failed to load stream. The station may be offline.');
+      const errorMsg = 'Stream unavailable. Try another station.';
+      setError(errorMsg);
+      toast.error(errorMsg);
+      
+      // Clear timeout
+      if (streamCheckTimeoutRef.current) {
+        clearTimeout(streamCheckTimeoutRef.current);
+      }
     };
 
     const handleWaiting = () => {
@@ -40,18 +52,58 @@ export const PlayerProvider = ({ children }) => {
     const handlePlaying = () => {
       setIsLoading(false);
       setIsPlaying(true);
+      hasReceivedDataRef.current = true;
+    };
+
+    const handleStalled = () => {
+      console.log('Stream stalled');
+      // Don't immediately error - give it a chance to recover
+    };
+
+    const handleSuspend = () => {
+      // Stream was suspended (could be normal or an issue)
+      console.log('Stream suspended');
+    };
+
+    const handleTimeUpdate = () => {
+      // We're receiving data, stream is working
+      hasReceivedDataRef.current = true;
+      setError(null);
+    };
+
+    const handleLoadStart = () => {
+      setIsLoading(true);
+      hasReceivedDataRef.current = false;
+    };
+
+    const handleAbort = () => {
+      setIsLoading(false);
     };
 
     audio.addEventListener('canplay', handleCanPlay);
     audio.addEventListener('error', handleError);
     audio.addEventListener('waiting', handleWaiting);
     audio.addEventListener('playing', handlePlaying);
+    audio.addEventListener('stalled', handleStalled);
+    audio.addEventListener('suspend', handleSuspend);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadstart', handleLoadStart);
+    audio.addEventListener('abort', handleAbort);
 
     return () => {
       audio.removeEventListener('canplay', handleCanPlay);
       audio.removeEventListener('error', handleError);
       audio.removeEventListener('waiting', handleWaiting);
       audio.removeEventListener('playing', handlePlaying);
+      audio.removeEventListener('stalled', handleStalled);
+      audio.removeEventListener('suspend', handleSuspend);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadstart', handleLoadStart);
+      audio.removeEventListener('abort', handleAbort);
+      
+      if (streamCheckTimeoutRef.current) {
+        clearTimeout(streamCheckTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -63,7 +115,14 @@ export const PlayerProvider = ({ children }) => {
     const audio = audioRef.current;
     setError(null);
     setIsLoading(true);
+    hasReceivedDataRef.current = false;
 
+    // Clear any existing timeout
+    if (streamCheckTimeoutRef.current) {
+      clearTimeout(streamCheckTimeoutRef.current);
+    }
+
+    // If clicking the same station that's playing, pause it
     if (currentStation?.stationuuid === station.stationuuid && isPlaying) {
       audio.pause();
       setIsPlaying(false);
@@ -72,18 +131,45 @@ export const PlayerProvider = ({ children }) => {
     }
 
     try {
+      // Stop current playback
       audio.pause();
-      audio.src = station.url_resolved || station.url;
+      audio.src = '';
+      
+      // Try url_resolved first, then fall back to url
+      const streamUrl = station.url_resolved || station.url;
+      
+      // Set new source
+      audio.src = streamUrl;
+      audio.load();
       setCurrentStation(station);
+      
+      // Set a timeout to check if stream is actually working
+      streamCheckTimeoutRef.current = setTimeout(() => {
+        if (!hasReceivedDataRef.current && isLoading) {
+          const errorMsg = 'Stream not responding. Try another station.';
+          setError(errorMsg);
+          setIsLoading(false);
+          setIsPlaying(false);
+          toast.error(errorMsg);
+          audio.pause();
+          audio.src = '';
+        }
+      }, 10000); // 10 second timeout
+      
       await audio.play();
       setIsPlaying(true);
+      toast.success(`Now playing: ${station.name}`);
+      
     } catch (err) {
-      setError('Failed to play stream');
+      console.error('Play error:', err);
+      const errorMsg = 'Failed to play stream. Station may be offline.';
+      setError(errorMsg);
       setIsPlaying(false);
+      toast.error(errorMsg);
     } finally {
       setIsLoading(false);
     }
-  }, [currentStation, isPlaying]);
+  }, [currentStation, isPlaying, isLoading]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -93,10 +179,18 @@ export const PlayerProvider = ({ children }) => {
       audio.pause();
       setIsPlaying(false);
     } else {
-      audio.play().catch(() => {
-        setError('Failed to resume playback');
-      });
-      setIsPlaying(true);
+      setIsLoading(true);
+      audio.play()
+        .then(() => {
+          setIsPlaying(true);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error('Resume error:', err);
+          setError('Failed to resume playback');
+          setIsLoading(false);
+          toast.error('Failed to resume playback');
+        });
     }
   }, [currentStation, isPlaying]);
 
@@ -107,6 +201,12 @@ export const PlayerProvider = ({ children }) => {
     setCurrentStation(null);
     setIsPlaying(false);
     setError(null);
+    setIsLoading(false);
+    hasReceivedDataRef.current = false;
+    
+    if (streamCheckTimeoutRef.current) {
+      clearTimeout(streamCheckTimeoutRef.current);
+    }
   }, []);
 
   const updateVolume = useCallback((newVolume) => {
