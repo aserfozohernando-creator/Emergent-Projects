@@ -149,15 +149,15 @@ const GenresPage = () => {
 
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                 <div>
-                  <h1 className="text-2xl md:text-3xl font-bold font-syne capitalize">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold font-syne capitalize">
                     {selectedGenre} Stations
                   </h1>
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-muted-foreground text-xs sm:text-sm">
                     {stations.length} stations found
                   </p>
                 </div>
 
-                <div className="w-full md:w-80">
+                <div className="w-full sm:w-64 md:w-80">
                   <SearchBar 
                     onSearch={searchStationsInGenre}
                     placeholder={`Search in ${selectedGenre}...`}
@@ -166,13 +166,13 @@ const GenresPage = () => {
               </div>
             </div>
 
-            <ScrollArea className="h-[calc(100vh-280px)]">
+            <ScrollArea className="h-[calc(100vh-320px)] sm:h-[calc(100vh-300px)] md:h-[calc(100vh-280px)]">
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 p-1">
                   {[...Array(8)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-                      <Skeleton className="w-14 h-14 rounded-lg" />
-                      <div className="flex-1 space-y-2">
+                    <div key={i} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl bg-white/5">
+                      <Skeleton className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex-shrink-0" />
+                      <div className="flex-1 space-y-2 min-w-0">
                         <Skeleton className="h-4 w-3/4" />
                         <Skeleton className="h-3 w-1/2" />
                       </div>
@@ -181,13 +181,13 @@ const GenresPage = () => {
                 </div>
               ) : stations.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <Music2 className="w-16 h-16 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">
+                  <Music2 className="w-12 h-12 sm:w-16 sm:h-16 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground text-sm">
                     No stations found for this genre.
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 p-1">
                   {stations.map((station) => (
                     <StationCard
                       key={station.stationuuid}
