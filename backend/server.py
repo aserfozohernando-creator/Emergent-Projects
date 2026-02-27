@@ -6,9 +6,10 @@ import os
 import logging
 import re
 import random
+import json
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 import uuid
 from datetime import datetime, timezone
 import httpx
@@ -18,6 +19,28 @@ import hashlib
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# Load app configuration
+CONFIG_PATH = ROOT_DIR / 'config.json'
+
+def load_config() -> dict:
+    """Load configuration from JSON file"""
+    try:
+        with open(CONFIG_PATH, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        logging.error(f"Failed to load config: {e}")
+        return {}
+
+def save_config(config: dict) -> bool:
+    """Save configuration to JSON file"""
+    try:
+        with open(CONFIG_PATH, 'w') as f:
+            json.dump(config, f, indent=2)
+        return True
+    except Exception as e:
+        logging.error(f"Failed to save config: {e}")
+        return False
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
