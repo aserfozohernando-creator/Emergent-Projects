@@ -288,3 +288,40 @@ input[type="range"]::-moz-range-thumb {
     border: none;
     box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
 }
+
+/* Custom scrollbar for similar stations */
+.scrollbar-thin {
+    scrollbar-width: thin;
+}
+
+.scrollbar-track-muted\/20::-webkit-scrollbar-track {
+    background: rgba(128, 128, 128, 0.2);
+    border-radius: 4px;
+}
+
+.scrollbar-thumb-primary\/50::-webkit-scrollbar-thumb {
+    background: rgba(0, 240, 255, 0.5);
+    border-radius: 4px;
+}
+
+.hover\:scrollbar-thumb-primary:hover::-webkit-scrollbar-thumb {
+    background: #00F0FF;
+}
+
+.light-theme .scrollbar-thumb-primary\/50::-webkit-scrollbar-thumb {
+    background: rgba(0, 160, 180, 0.5);
+}
+
+.light-theme .hover\:scrollbar-thumb-primary:hover::-webkit-scrollbar-thumb {
+    background: #00a0aa;
+}
+
+/* Time input styling */
+input[type="time"] {
+    color-scheme: dark;
+}
+
+.light-theme input[type="time"] {
+    color-scheme: light;
+}
+
