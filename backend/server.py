@@ -352,13 +352,21 @@ async def verify_stream_url(url: str, timeout: float = 10.0) -> dict:
     1. Downloads actual audio data
     2. Validates audio file signatures (MP3, OGG, AAC, etc.)
     3. Checks ICY headers for streaming servers
-    4. Returns detailed result with reason for failure
+    4. Handles HLS/M3U8 streams
+    5. Returns detailed result with reason for failure
     """
     result = {
         "is_live": False,
         "reason": "unknown",
-        "content_type": None
+        "content_type": None,
+        "stream_type": "unknown"
     }
+    
+    # Check if this is an HLS stream
+    lower_url = url.lower()
+    is_hls = '.m3u8' in lower_url or 'm3u8' in lower_url
+    is_pls = '.pls' in lower_url
+    is_m3u = '.m3u' in lower_url and '.m3u8' not in lower_url
     
     try:
         headers = {
@@ -374,7 +382,15 @@ async def verify_stream_url(url: str, timeout: float = 10.0) -> dict:
             'audio/mpeg', 'audio/mp3', 'audio/aac', 'audio/ogg', 
             'audio/opus', 'audio/wav', 'audio/webm', 'audio/flac',
             'application/ogg', 'audio/x-mpegurl', 'application/x-mpegurl',
-            'application/vnd.apple.mpegurl', 'audio/x-scpls'
+            'application/vnd.apple.mpegurl', 'audio/x-scpls', 'audio/x-pn-realaudio',
+            'audio/aacp', 'audio/x-aac'
+        ]
+        
+        # HLS/playlist content types
+        playlist_types = [
+            'application/vnd.apple.mpegurl', 'application/x-mpegurl',
+            'audio/x-mpegurl', 'audio/mpegurl', 'audio/x-scpls',
+            'audio/x-pn-realaudio', 'text/plain'
         ]
         
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as http_client:
@@ -394,9 +410,55 @@ async def verify_stream_url(url: str, timeout: float = 10.0) -> dict:
                     if icy_name or icy_br:
                         result["is_live"] = True
                         result["reason"] = "icy_stream"
+                        result["stream_type"] = "icecast"
                         return result
                     
-                    # Check if content type is playable
+                    # Handle HLS streams
+                    if is_hls or any(t in content_type for t in playlist_types):
+                        # Read the playlist content
+                        data = b''
+                        async for chunk in response.aiter_bytes(8192):
+                            data += chunk
+                            if len(data) >= 8192:
+                                break
+                        
+                        text_content = data.decode('utf-8', errors='ignore')
+                        
+                        # Check for HLS markers
+                        if '#EXTM3U' in text_content or '#EXT-X-' in text_content:
+                            result["is_live"] = True
+                            result["reason"] = "hls_playlist"
+                            result["stream_type"] = "hls"
+                            return result
+                        
+                        # Check for PLS playlist
+                        if '[playlist]' in text_content.lower() or 'file1=' in text_content.lower():
+                            result["is_live"] = True
+                            result["reason"] = "pls_playlist"
+                            result["stream_type"] = "pls"
+                            return result
+                        
+                        # Check for M3U playlist (simple)
+                        if text_content.strip().startswith('http') or '#EXTINF' in text_content:
+                            result["is_live"] = True
+                            result["reason"] = "m3u_playlist"
+                            result["stream_type"] = "m3u"
+                            return result
+                    
+                    # Handle PLS files
+                    if is_pls:
+                        data = b''
+                        async for chunk in response.aiter_bytes(4096):
+                            data += chunk
+                            break
+                        text_content = data.decode('utf-8', errors='ignore')
+                        if '[playlist]' in text_content.lower() or 'file1=' in text_content.lower():
+                            result["is_live"] = True
+                            result["reason"] = "pls_playlist"
+                            result["stream_type"] = "pls"
+                            return result
+                    
+                    # Check if content type is playable audio
                     is_audio_type = any(t in content_type for t in playable_types) or 'audio/' in content_type
                     
                     if 'text/html' in content_type or 'text/plain' in content_type:
