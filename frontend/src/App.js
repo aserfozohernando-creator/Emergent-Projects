@@ -41,6 +41,7 @@ const AppContent = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/genres" element={<GenresPage />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/podcasts" element={<PodcastsPage />} />
         </Routes>
         <AudioPlayer />
         <Toaster 
