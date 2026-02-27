@@ -96,6 +96,24 @@ export const PlayerProvider = ({ children }) => {
       saveHealth(updated);
       return updated;
     });
+    
+    // Also update the live status in localStorage for the HomePage sorting
+    try {
+      const liveStatusStr = localStorage.getItem(LIVE_STATUS_KEY);
+      const liveStatus = liveStatusStr ? JSON.parse(liveStatusStr) : {};
+      liveStatus[stationId] = {
+        isLive: success,
+        checkedAt: Date.now()
+      };
+      localStorage.setItem(LIVE_STATUS_KEY, JSON.stringify(liveStatus));
+      
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new CustomEvent('stationLiveStatusUpdate', {
+        detail: { stationId, isLive: success }
+      }));
+    } catch (e) {
+      console.error('Failed to update live status:', e);
+    }
   }, [saveHealth]);
 
   // Get health status for a station
