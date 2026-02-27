@@ -63,9 +63,11 @@ const AppContent = () => {
 function App() {
   return (
     <ThemeProvider>
-      <PlayerProvider>
-        <AppContent />
-      </PlayerProvider>
+      <LocalDataProvider>
+        <PlayerProvider>
+          <AppContent />
+        </PlayerProvider>
+      </LocalDataProvider>
     </ThemeProvider>
   );
 }
