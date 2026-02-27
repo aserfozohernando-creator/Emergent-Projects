@@ -761,7 +761,6 @@ async def get_podcast_episodes(
                 desc_elem = item.find("description")
                 if desc_elem is not None and desc_elem.text:
                     # Remove HTML tags
-                    import re
                     description = re.sub('<[^<]+?>', '', desc_elem.text)[:500]
                 
                 # Get published date
