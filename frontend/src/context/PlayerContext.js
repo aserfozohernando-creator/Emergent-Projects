@@ -6,6 +6,7 @@ const PlayerContext = createContext(null);
 // Local storage keys
 const HISTORY_KEY = 'globalradio_history';
 const HEALTH_KEY = 'globalradio_health';
+const LIVE_STATUS_KEY = 'globalradio_live_status';
 
 export const usePlayer = () => {
   const context = useContext(PlayerContext);
