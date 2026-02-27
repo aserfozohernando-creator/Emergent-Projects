@@ -332,6 +332,9 @@ const HomePage = () => {
                   favorites={favorites}
                   onToggleFavorite={toggleFavorite}
                 />
+
+                {/* Related Podcasts */}
+                <RelatedPodcasts />
               </div>
             </div>
           </div>
