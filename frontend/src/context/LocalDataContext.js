@@ -190,6 +190,16 @@ export const LocalDataProvider = ({ children }) => {
 
   // Add podcast to favorites
   const addPodcastFavorite = useCallback((podcast) => {
+    if (!configLimits.podcastsEnabled) {
+      toast.error('Podcasts feature is disabled');
+      return false;
+    }
+    
+    if (podcastFavorites.length >= configLimits.maxPodcasts) {
+      toast.error(`Maximum ${configLimits.maxPodcasts} podcast favorites reached. Remove some to add more.`);
+      return false;
+    }
+    
     const exists = podcastFavorites.some(p => p.id === podcast.id);
     if (exists) {
       toast.info('Podcast already in favorites');
