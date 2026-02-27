@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import re
+import random
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
@@ -802,8 +803,6 @@ async def shuffle_similar_station(
     exclude_id: Optional[str] = Query(None, description="Station ID to exclude from results")
 ):
     """Get a random station similar to the current one based on tags"""
-    import random
-    
     params = {
         "tag": tag.lower(),
         "limit": 50,
