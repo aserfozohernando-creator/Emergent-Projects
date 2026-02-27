@@ -1,0 +1,64 @@
+{
+  "app": {
+    "name": "Global Radio Station",
+    "version": "1.0.0",
+    "description": "Listen to radio stations from around the world"
+  },
+  "features": {
+    "favorites": {
+      "enabled": true,
+      "max_stations": 50,
+      "max_podcasts": 25
+    },
+    "podcasts": {
+      "enabled": true,
+      "allow_playback": true,
+      "max_episodes_display": 10
+    },
+    "timer": {
+      "sleep_timer_enabled": true,
+      "wake_alarm_enabled": true,
+      "sleep_timer_options": [5, 10, 15, 30, 60],
+      "default_sleep_minutes": 30
+    },
+    "playback": {
+      "auto_play_on_select": true,
+      "show_visualizer": true,
+      "show_health_indicator": true,
+      "background_health_check": true
+    },
+    "ui": {
+      "show_world_map": true,
+      "show_similar_stations": true,
+      "show_recently_played": true,
+      "show_shuffle_button": true,
+      "dark_mode_default": true,
+      "theme_toggle_enabled": true
+    },
+    "export_import": {
+      "enabled": true,
+      "show_in_navbar": true
+    },
+    "search": {
+      "enabled": true,
+      "show_discover_button": true,
+      "max_results": 50
+    },
+    "regions": {
+      "enabled_regions": ["europe", "americas", "asia", "russia", "africa", "oceania"],
+      "enabled_countries": ["PL", "HU"],
+      "show_region_buttons": true
+    }
+  },
+  "limits": {
+    "stations_per_page": 30,
+    "health_check_timeout_seconds": 12,
+    "playback_timeout_seconds": 15,
+    "max_history_items": 20
+  },
+  "messages": {
+    "favorites_limit_reached": "You've reached the maximum number of favorites ({max}). Remove some to add more.",
+    "podcasts_disabled": "Podcast feature is currently disabled.",
+    "timer_disabled": "Timer feature is currently disabled."
+  }
+}
