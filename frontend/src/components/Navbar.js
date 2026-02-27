@@ -1,13 +1,30 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Globe, Music2, Heart, Radio, Headphones } from 'lucide-react';
+import { Globe, Music2, Heart, Radio, Headphones, Download, Upload } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import AlarmButton from './AlarmButton';
+import { Button } from './ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { useLocalData } from '../context/LocalDataContext';
 
 const Navbar = () => {
   const location = useLocation();
+  const { exportData, importData } = useLocalData();
+  const fileInputRef = useRef(null);
   
   const isActive = (path) => location.pathname === path;
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await importData(file);
+      e.target.value = '';
+    }
+  };
 
   const navItems = [
     { path: '/', icon: Globe, label: 'Explore' },
