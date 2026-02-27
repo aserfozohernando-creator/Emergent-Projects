@@ -116,6 +116,13 @@ Build a "Global Radio Station" application to listen to music from all over the 
    - Native HTML5 audio for standard formats
    - Safari HLS native fallback
    - Proper cleanup on station change
+6. ✅ Export All Data Feature
+   - "Export All" button in navbar (after Favorites)
+   - Downloads ZIP file with two CSV files:
+     - `radio_stations.csv`: Name, Stream URL, Homepage, Country, Audio Format, Bitrate, Tags
+     - `podcasts.csv`: Title, Author, Feed URL, iTunes URL, Episode Count, Genre
+   - Includes README.txt with export info
+   - Audio format detection (MP3, AAC, OGG, HLS, etc.)
 
 ### Testing Results
 - Backend: 100% (33/33 tests passed)
