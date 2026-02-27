@@ -1,8 +1,11 @@
 import React from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { Play, Pause, Volume2, VolumeX, X, Radio, Loader2, AlertCircle } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, X, Radio, Loader2, AlertCircle, Keyboard } from 'lucide-react';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import AudioVisualizer from './AudioVisualizer';
+import SleepTimerButton from './SleepTimerButton';
 
 const AudioPlayer = () => {
   const { 
@@ -45,16 +48,6 @@ const AudioPlayer = () => {
             >
               <Radio className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
             </div>
-            
-            {/* Playing indicator */}
-            {isPlaying && !isLoading && !error && (
-              <div className="absolute -bottom-1 -right-1 flex gap-0.5 items-end h-3 sm:h-4 p-0.5 sm:p-1 bg-black/80 rounded">
-                <span className="w-0.5 sm:w-1 bg-primary equalizer-bar rounded-full"></span>
-                <span className="w-0.5 sm:w-1 bg-primary equalizer-bar rounded-full"></span>
-                <span className="w-0.5 sm:w-1 bg-primary equalizer-bar rounded-full"></span>
-                <span className="w-0.5 sm:w-1 bg-primary equalizer-bar rounded-full"></span>
-              </div>
-            )}
 
             {/* Error indicator */}
             {error && (
@@ -101,10 +94,15 @@ const AudioPlayer = () => {
               )}
             </p>
           </div>
+
+          {/* Audio Visualizer - Hidden on mobile */}
+          <div className="hidden md:block w-32 lg:w-48">
+            <AudioVisualizer barCount={16} />
+          </div>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-4">
+        <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
           {/* Play/Pause Button */}
           <Button
             data-testid="play-pause-button"
@@ -148,6 +146,32 @@ const AudioPlayer = () => {
               className="w-16 md:w-20"
             />
           </div>
+
+          {/* Sleep Timer */}
+          <SleepTimerButton />
+
+          {/* Keyboard Shortcuts Hint - Desktop only */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="hidden lg:flex text-muted-foreground hover:text-foreground h-9 w-9"
+                >
+                  <Keyboard className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="bg-[#0a0a0a] border-white/10">
+                <div className="text-xs space-y-1">
+                  <div><kbd className="bg-white/10 px-1 rounded">Space</kbd> Play/Pause</div>
+                  <div><kbd className="bg-white/10 px-1 rounded">↑↓</kbd> Volume</div>
+                  <div><kbd className="bg-white/10 px-1 rounded">M</kbd> Mute</div>
+                  <div><kbd className="bg-white/10 px-1 rounded">Esc</kbd> Stop</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           {/* Stop Button */}
           <Button
