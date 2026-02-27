@@ -15,11 +15,23 @@ import { usePlayer } from '../context/PlayerContext';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const HomePage = () => {
+  const { requestNotificationPermission } = usePlayer();
   const [stations, setStations] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    'Notification' in window && Notification.permission === 'granted'
+  );
+
+  const enableNotifications = async () => {
+    const granted = await requestNotificationPermission();
+    setNotificationsEnabled(granted);
+    if (granted) {
+      toast.success('Notifications enabled!');
+    }
+  };
 
   const fetchTopStations = useCallback(async () => {
     setLoading(true);
