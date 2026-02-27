@@ -123,6 +123,177 @@ async def reset_config():
     config = load_config()
     return {"message": "Configuration reloaded", "config": config}
 
+# ============== Export All Data Endpoint ==============
+
+def detect_audio_format(url: str, codec: str = "") -> str:
+    """Detect audio format from URL or codec field"""
+    if codec:
+        return codec.upper()
+    
+    lower_url = url.lower()
+    if '.m3u8' in lower_url or 'm3u8' in lower_url:
+        return 'HLS'
+    if '.mp3' in lower_url or 'mp3' in lower_url:
+        return 'MP3'
+    if '.aac' in lower_url or 'aac' in lower_url:
+        return 'AAC'
+    if '.ogg' in lower_url:
+        return 'OGG'
+    if '.opus' in lower_url:
+        return 'OPUS'
+    if '.flac' in lower_url:
+        return 'FLAC'
+    if '.pls' in lower_url:
+        return 'PLS'
+    return 'UNKNOWN'
+
+@api_router.get("/export/all")
+async def export_all_data(
+    stations_limit: int = Query(500, le=1000, description="Max stations to export"),
+    podcasts_limit: int = Query(100, le=500, description="Max podcasts to export")
+):
+    """
+    Export all discovered radio stations and podcasts as a ZIP file containing two CSVs.
+    - radio_stations.csv: All stations with name, URL, homepage, country, codec/format, bitrate, tags
+    - podcasts.csv: All podcasts with title, author, URL, episode count, categories
+    """
+    try:
+        # Fetch stations from Radio Browser API
+        stations = []
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            try:
+                response = await http_client.get(
+                    f"{RADIO_BROWSER_API}/stations/topvote/{stations_limit}",
+                    headers={"User-Agent": "GlobalRadioStation/1.0"}
+                )
+                if response.status_code == 200:
+                    stations = response.json()
+            except Exception as e:
+                logger.error(f"Failed to fetch stations for export: {e}")
+        
+        # Fetch podcasts from iTunes API
+        podcasts = []
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                # Fetch top podcasts from multiple genres
+                genres = ["music", "news", "comedy", "technology"]
+                for genre in genres:
+                    try:
+                        response = await http_client.get(
+                            f"{ITUNES_PODCAST_API}/search",
+                            params={
+                                "term": genre,
+                                "media": "podcast",
+                                "limit": podcasts_limit // len(genres)
+                            }
+                        )
+                        if response.status_code == 200:
+                            data = response.json()
+                            podcasts.extend(data.get("results", []))
+                    except Exception:
+                        continue
+        except Exception as e:
+            logger.error(f"Failed to fetch podcasts for export: {e}")
+        
+        # Create CSV for stations
+        stations_csv = io.StringIO()
+        stations_writer = csv.writer(stations_csv)
+        stations_writer.writerow([
+            'Name', 'Stream URL', 'Homepage', 'Country', 'Country Code', 
+            'Audio Format', 'Bitrate (kbps)', 'Tags', 'Votes', 'Language'
+        ])
+        
+        for station in stations:
+            stream_url = station.get('url_resolved') or station.get('url', '')
+            codec = station.get('codec', '')
+            audio_format = detect_audio_format(stream_url, codec)
+            
+            stations_writer.writerow([
+                station.get('name', ''),
+                stream_url,
+                station.get('homepage', ''),
+                station.get('country', ''),
+                station.get('countrycode', ''),
+                audio_format,
+                station.get('bitrate', 0),
+                station.get('tags', ''),
+                station.get('votes', 0),
+                station.get('language', '')
+            ])
+        
+        # Create CSV for podcasts
+        podcasts_csv = io.StringIO()
+        podcasts_writer = csv.writer(podcasts_csv)
+        podcasts_writer.writerow([
+            'Title', 'Author', 'Feed URL', 'iTunes URL', 'Episode Count', 
+            'Genre', 'Release Date', 'Artwork URL'
+        ])
+        
+        seen_podcasts = set()
+        for podcast in podcasts:
+            podcast_id = podcast.get('collectionId')
+            if podcast_id in seen_podcasts:
+                continue
+            seen_podcasts.add(podcast_id)
+            
+            podcasts_writer.writerow([
+                podcast.get('collectionName', ''),
+                podcast.get('artistName', ''),
+                podcast.get('feedUrl', ''),
+                podcast.get('collectionViewUrl', ''),
+                podcast.get('trackCount', 0),
+                podcast.get('primaryGenreName', ''),
+                podcast.get('releaseDate', ''),
+                podcast.get('artworkUrl600', podcast.get('artworkUrl100', ''))
+            ])
+        
+        # Create ZIP file in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Add stations CSV
+            stations_csv.seek(0)
+            zip_file.writestr('radio_stations.csv', stations_csv.getvalue())
+            
+            # Add podcasts CSV
+            podcasts_csv.seek(0)
+            zip_file.writestr('podcasts.csv', podcasts_csv.getvalue())
+            
+            # Add a README
+            readme_content = f"""Global Radio Station Export
+Generated: {datetime.now(timezone.utc).isoformat()}
+
+Contents:
+- radio_stations.csv: {len(stations)} radio stations
+- podcasts.csv: {len(seen_podcasts)} podcasts
+
+Audio Formats:
+- MP3: MPEG Audio Layer 3
+- AAC: Advanced Audio Coding
+- OGG: Ogg Vorbis
+- OPUS: Opus Audio
+- FLAC: Free Lossless Audio Codec
+- HLS: HTTP Live Streaming (M3U8)
+- PLS: Playlist file (contains actual stream URL)
+"""
+            zip_file.writestr('README.txt', readme_content)
+        
+        zip_buffer.seek(0)
+        
+        # Return as downloadable file
+        filename = f"global_radio_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        return StreamingResponse(
+            zip_buffer,
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Export failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
 # ============== Models ==============
 
 # Models
