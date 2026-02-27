@@ -1,18 +1,22 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Globe, Music2, Heart, Radio, Headphones, Download, Upload } from 'lucide-react';
+import { Globe, Music2, Heart, Radio, Headphones, Download, Upload, FileArchive, Loader2 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import AlarmButton from './AlarmButton';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { useLocalData } from '../context/LocalDataContext';
 import { useConfig } from '../context/ConfigContext';
+import { toast } from 'sonner';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const Navbar = () => {
   const location = useLocation();
   const { exportData, importData } = useLocalData();
   const { isFeatureEnabled, getFeatureConfig } = useConfig();
   const fileInputRef = useRef(null);
+  const [isExportingAll, setIsExportingAll] = useState(false);
   
   const isActive = (path) => location.pathname === path;
 
@@ -25,6 +29,37 @@ const Navbar = () => {
     if (file) {
       await importData(file);
       e.target.value = '';
+    }
+  };
+
+  // Export all stations and podcasts as ZIP
+  const handleExportAll = async () => {
+    setIsExportingAll(true);
+    try {
+      toast.info('Generating export file...', { duration: 2000 });
+      
+      const response = await fetch(`${API}/export/all?stations_limit=500&podcasts_limit=100`);
+      
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `global_radio_export_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Export complete! Check your downloads.');
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast.error('Failed to export data');
+    } finally {
+      setIsExportingAll(false);
     }
   };
 
