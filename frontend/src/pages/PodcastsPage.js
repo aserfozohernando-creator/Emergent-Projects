@@ -152,54 +152,9 @@ const PodcastsPage = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {podcasts.map((podcast) => (
-                <a
-                  key={podcast.id}
-                  href={podcast.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group cursor-pointer"
-                >
-                  <div className="relative aspect-square rounded-xl overflow-hidden mb-2 border border-white/10 group-hover:border-purple-400/50 transition-all shadow-md group-hover:shadow-purple-500/20">
-                    {podcast.image ? (
-                      <img 
-                        src={podcast.image} 
-                        alt={podcast.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div className={`${podcast.image ? 'hidden' : 'flex'} w-full h-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 items-center justify-center`}>
-                      <Podcast className="w-10 h-10 text-purple-400" />
-                    </div>
-                    
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <div className="flex items-center gap-1.5 text-white text-sm bg-purple-500 px-3 py-1.5 rounded-full">
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>Listen</span>
-                      </div>
-                    </div>
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-medium truncate text-foreground group-hover:text-purple-400 transition-colors">
-                    {podcast.title}
-                  </h3>
-                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">{podcast.author}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Badge variant="secondary" className="text-[9px] sm:text-[10px] px-1.5 py-0 h-4 bg-purple-500/10 text-purple-400">
-                      {podcast.episode_count} episodes
-                    </Badge>
-                    {podcast.categories && (
-                      <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 h-4 border-white/10 text-muted-foreground capitalize">
-                        {podcast.categories}
-                      </Badge>
-                    )}
-                  </div>
-                </a>
+                <PodcastCard key={podcast.id} podcast={podcast} />
               ))}
             </div>
           )}
