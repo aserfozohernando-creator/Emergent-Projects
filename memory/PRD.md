@@ -104,25 +104,18 @@ Build a "Global Radio Station" application to listen to music from all over the 
      - AAC: ADTS header (0xFF 0xF0)
      - WAV: 'RIFF' header
    - Detects ICY headers (icy-name, icy-br) for Icecast/Shoutcast
-   - Returns detailed failure reasons:
-     - `connect_failed` - DNS/connection errors
-     - `timeout` - Stream not responding
-     - `http_xxx` - HTTP status code errors
-     - `not_audio` - Wrong content type (text/html)
-     - `invalid_audio` - Binary but no audio signature
-   - Only marks stations as "live" when actually playable
+   - Detects HLS playlists (#EXTM3U) and PLS playlists
+   - Returns detailed failure reasons
 4. ✅ Backend Configuration System (`config.json`)
    - Editable JSON file at `/app/backend/config.json`
-   - Controls all app features dynamically:
-     - `features.favorites.max_stations` - Max favoritable stations
-     - `features.favorites.max_podcasts` - Max favoritable podcasts  
-     - `features.podcasts.enabled` - Show/hide podcasts feature
-     - `features.timer.sleep_timer_enabled` - Enable/disable sleep timer
-     - `features.timer.wake_alarm_enabled` - Enable/disable wake alarm
-     - `features.export_import.enabled` - Enable/disable backup feature
-     - `features.ui.theme_toggle_enabled` - Show/hide theme toggle
+   - Controls all app features dynamically
    - API endpoints: GET/PUT `/api/config`
-   - Frontend auto-adjusts based on config values
+5. ✅ Multi-Codec Audio Support (HLS.js)
+   - Integrated HLS.js for M3U8/HLS streams
+   - Auto-detects stream type from URL (mp3, aac, ogg, opus, flac, hls, pls)
+   - Native HTML5 audio for standard formats
+   - Safari HLS native fallback
+   - Proper cleanup on station change
 
 ### Testing Results
 - Backend: 100% (33/33 tests passed)
