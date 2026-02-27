@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import Hls from 'hls.js';
 
 const PlayerContext = createContext(null);
 
@@ -7,6 +8,40 @@ const PlayerContext = createContext(null);
 const HISTORY_KEY = 'globalradio_history';
 const HEALTH_KEY = 'globalradio_health';
 const LIVE_STATUS_KEY = 'globalradio_live_status';
+
+// Detect stream type from URL
+const getStreamType = (url) => {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('.m3u8') || lowerUrl.includes('m3u8')) return 'hls';
+  if (lowerUrl.includes('.pls') || lowerUrl.includes('/listen.pls')) return 'pls';
+  if (lowerUrl.includes('.m3u') && !lowerUrl.includes('.m3u8')) return 'm3u';
+  if (lowerUrl.includes('.asx')) return 'asx';
+  if (lowerUrl.includes('.ogg') || lowerUrl.includes('ogg')) return 'ogg';
+  if (lowerUrl.includes('.opus')) return 'opus';
+  if (lowerUrl.includes('.flac')) return 'flac';
+  if (lowerUrl.includes('.aac') || lowerUrl.includes('aac')) return 'aac';
+  if (lowerUrl.includes('.mp3') || lowerUrl.includes('mp3')) return 'mp3';
+  return 'unknown';
+};
+
+// Check if browser can play a specific type natively
+const canPlayNatively = (type) => {
+  const audio = document.createElement('audio');
+  const typeMap = {
+    'mp3': 'audio/mpeg',
+    'aac': 'audio/aac',
+    'ogg': 'audio/ogg',
+    'opus': 'audio/opus',
+    'flac': 'audio/flac',
+    'wav': 'audio/wav',
+    'webm': 'audio/webm'
+  };
+  
+  if (typeMap[type]) {
+    return audio.canPlayType(typeMap[type]) !== '';
+  }
+  return true; // Assume yes for unknown types
+};
 
 export const usePlayer = () => {
   const context = useContext(PlayerContext);
