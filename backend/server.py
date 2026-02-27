@@ -515,6 +515,172 @@ async def get_sources():
         ]
     }
 
+# Podcast endpoints (using iTunes Search API)
+@api_router.get("/podcasts/search", response_model=List[Podcast])
+async def search_podcasts(
+    query: str = Query(..., min_length=1),
+    limit: int = Query(20, le=50)
+):
+    """Search for podcasts by name or topic"""
+    async with httpx.AsyncClient(timeout=15.0) as http_client:
+        try:
+            response = await http_client.get(
+                f"{ITUNES_PODCAST_API}/search",
+                params={
+                    "term": query,
+                    "media": "podcast",
+                    "limit": limit
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            podcasts = []
+            for item in data.get("results", []):
+                podcast = Podcast(
+                    id=str(item.get("collectionId", "")),
+                    title=item.get("collectionName", "Unknown"),
+                    description=item.get("description", "") or item.get("collectionName", ""),
+                    author=item.get("artistName", ""),
+                    image=item.get("artworkUrl600", "") or item.get("artworkUrl100", ""),
+                    url=item.get("collectionViewUrl", ""),
+                    feed_url=item.get("feedUrl", ""),
+                    categories=item.get("primaryGenreName", ""),
+                    language=item.get("country", ""),
+                    episode_count=item.get("trackCount", 0)
+                )
+                podcasts.append(podcast)
+            
+            return podcasts
+        except Exception as e:
+            logger.error(f"Podcast search error: {e}")
+            raise HTTPException(status_code=502, detail="Failed to search podcasts")
+
+@api_router.get("/podcasts/related")
+async def get_related_podcasts(
+    station_name: str = Query(...),
+    tags: Optional[str] = Query(None),
+    limit: int = Query(10, le=20)
+):
+    """Get podcasts related to a radio station based on name and tags"""
+    # Build search query from station name and tags
+    search_terms = [station_name]
+    if tags:
+        # Add first 2 tags to search
+        tag_list = [t.strip() for t in tags.split(",")[:2]]
+        search_terms.extend(tag_list)
+    
+    query = " ".join(search_terms)
+    
+    async with httpx.AsyncClient(timeout=15.0) as http_client:
+        try:
+            response = await http_client.get(
+                f"{ITUNES_PODCAST_API}/search",
+                params={
+                    "term": query,
+                    "media": "podcast",
+                    "limit": limit
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            podcasts = []
+            for item in data.get("results", []):
+                podcast = {
+                    "id": str(item.get("collectionId", "")),
+                    "title": item.get("collectionName", "Unknown"),
+                    "author": item.get("artistName", ""),
+                    "image": item.get("artworkUrl600", "") or item.get("artworkUrl100", ""),
+                    "url": item.get("collectionViewUrl", ""),
+                    "feed_url": item.get("feedUrl", ""),
+                    "categories": item.get("primaryGenreName", ""),
+                    "episode_count": item.get("trackCount", 0)
+                }
+                podcasts.append(podcast)
+            
+            return {"podcasts": podcasts, "search_query": query}
+        except Exception as e:
+            logger.error(f"Related podcasts error: {e}")
+            return {"podcasts": [], "search_query": query, "error": str(e)}
+
+@api_router.get("/podcasts/top")
+async def get_top_podcasts(
+    genre: Optional[str] = Query(None),
+    country: str = Query("US"),
+    limit: int = Query(20, le=50)
+):
+    """Get top podcasts, optionally filtered by genre"""
+    # iTunes genre IDs for podcasts
+    genre_ids = {
+        "music": 1310,
+        "news": 1489,
+        "comedy": 1303,
+        "sports": 1545,
+        "arts": 1301,
+        "technology": 1318,
+        "business": 1321,
+        "health": 1512,
+        "education": 1304,
+        "society": 1324,
+        "science": 1533,
+        "history": 1487,
+        "true crime": 1488,
+        "fiction": 1483
+    }
+    
+    async with httpx.AsyncClient(timeout=15.0) as http_client:
+        try:
+            params = {
+                "country": country,
+                "limit": limit,
+                "media": "podcast",
+                "explicit": "no"
+            }
+            
+            if genre and genre.lower() in genre_ids:
+                params["genreId"] = genre_ids[genre.lower()]
+                url = f"{ITUNES_PODCAST_API}/search"
+                params["term"] = genre
+            else:
+                # Get top podcasts overall
+                url = f"{ITUNES_PODCAST_API}/search"
+                params["term"] = "top podcasts"
+            
+            response = await http_client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            podcasts = []
+            for item in data.get("results", []):
+                podcast = {
+                    "id": str(item.get("collectionId", "")),
+                    "title": item.get("collectionName", "Unknown"),
+                    "author": item.get("artistName", ""),
+                    "image": item.get("artworkUrl600", "") or item.get("artworkUrl100", ""),
+                    "url": item.get("collectionViewUrl", ""),
+                    "feed_url": item.get("feedUrl", ""),
+                    "categories": item.get("primaryGenreName", ""),
+                    "episode_count": item.get("trackCount", 0)
+                }
+                podcasts.append(podcast)
+            
+            return {"podcasts": podcasts, "genre": genre, "country": country}
+        except Exception as e:
+            logger.error(f"Top podcasts error: {e}")
+            raise HTTPException(status_code=502, detail="Failed to fetch top podcasts")
+
+@api_router.get("/podcasts/genres")
+async def get_podcast_genres():
+    """Get available podcast genres"""
+    return {
+        "genres": [
+            "music", "news", "comedy", "sports", "arts", "technology",
+            "business", "health", "education", "society", "science",
+            "history", "true crime", "fiction"
+        ]
+    }
+
 # Favorites endpoints (stored in MongoDB)
 @api_router.post("/favorites", response_model=FavoriteStation)
 async def add_favorite(favorite: FavoriteCreate):
