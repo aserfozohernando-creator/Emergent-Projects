@@ -5,7 +5,8 @@
 @tailwind utilities;
 
 @layer base {
-    :root {
+    /* Dark theme (default) */
+    :root, .dark-theme {
         --background: 0 0% 2%;
         --foreground: 0 0% 98%;
         --card: 0 0% 4%;
@@ -27,6 +28,29 @@
         --ring: 186 100% 50%;
         --radius: 0.75rem;
     }
+
+    /* Light theme */
+    .light-theme {
+        --background: 0 0% 98%;
+        --foreground: 0 0% 10%;
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 10%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 10%;
+        --primary: 186 100% 40%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 45 100% 45%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 0 0% 94%;
+        --muted-foreground: 0 0% 45%;
+        --accent: 280 100% 50%;
+        --accent-foreground: 0 0% 100%;
+        --destructive: 0 84% 50%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 0 0% 88%;
+        --input: 0 0% 88%;
+        --ring: 186 100% 40%;
+    }
 }
 
 * {
@@ -37,11 +61,18 @@
 
 body {
     font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #050505;
-    color: #FAFAFA;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.light-theme body,
+.light-theme {
+    background-color: #f8f8f8;
+    color: #1a1a1a;
 }
 
 h1, h2, h3, h4, h5, h6 {
