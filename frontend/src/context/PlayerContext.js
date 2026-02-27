@@ -364,6 +364,9 @@ export const PlayerProvider = ({ children }) => {
       if (streamCheckTimeoutRef.current) {
         clearTimeout(streamCheckTimeoutRef.current);
       }
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+      }
       if (sleepTimerRef.current) {
         clearTimeout(sleepTimerRef.current);
       }
