@@ -95,13 +95,22 @@ Build a "Global Radio Station" application to listen to music from all over the 
    - Download icon (Export) visible in navbar on all pages
    - Upload icon (Import) visible in navbar on all pages
    - Easy access to backup/restore favorites from any page
-3. ✅ Improved Stream Verification (More Robust)
-   - Uses HEAD request first (fast)
-   - Falls back to GET with Range header
-   - Handles edge cases like BBC streams that need specific headers
-   - Detects audio content types and ICY headers
-   - Longer stall timeout (20s) for slow streams
-   - Better handling of streaming responses
+3. ✅ Robust Stream Verification (Audio Validation)
+   - Downloads 4KB of actual audio data
+   - Validates audio file signatures:
+     - MP3: ID3 tag or frame sync (0xFF 0xE0)
+     - OGG: 'OggS' magic bytes
+     - FLAC: 'fLaC' magic bytes  
+     - AAC: ADTS header (0xFF 0xF0)
+     - WAV: 'RIFF' header
+   - Detects ICY headers (icy-name, icy-br) for Icecast/Shoutcast
+   - Returns detailed failure reasons:
+     - `connect_failed` - DNS/connection errors
+     - `timeout` - Stream not responding
+     - `http_xxx` - HTTP status code errors
+     - `not_audio` - Wrong content type (text/html)
+     - `invalid_audio` - Binary but no audio signature
+   - Only marks stations as "live" when actually playable
 4. ✅ Backend Configuration System (`config.json`)
    - Editable JSON file at `/app/backend/config.json`
    - Controls all app features dynamically:
