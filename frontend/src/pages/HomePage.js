@@ -48,6 +48,22 @@ const HomePage = () => {
     }
   }, []);
 
+  const fetchStationsByCountry = useCallback(async (countryCode, countryName) => {
+    setLoading(true);
+    setSelectedRegion(countryCode);
+    try {
+      const response = await axios.get(`${API}/stations/by-country/${countryCode}`, {
+        params: { limit: 50 }
+      });
+      setStations(response.data);
+      toast.success(`Showing stations from ${countryName}`);
+    } catch (error) {
+      toast.error('Failed to load stations');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const searchStations = useCallback(async (query) => {
     if (!query) {
       fetchTopStations();
