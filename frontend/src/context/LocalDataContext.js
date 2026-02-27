@@ -44,6 +44,22 @@ export const LocalDataProvider = ({ children }) => {
     }
   }, []);
 
+  // Listen for live status updates from PlayerContext
+  useEffect(() => {
+    const handleLiveStatusUpdate = (event) => {
+      const { stationId, isLive } = event.detail;
+      setStationLiveStatus(prev => ({
+        ...prev,
+        [stationId]: { isLive, checkedAt: Date.now() }
+      }));
+    };
+
+    window.addEventListener('stationLiveStatusUpdate', handleLiveStatusUpdate);
+    return () => {
+      window.removeEventListener('stationLiveStatusUpdate', handleLiveStatusUpdate);
+    };
+  }, []);
+
   // Save favorites to localStorage
   const saveFavorites = useCallback((newFavorites) => {
     try {
