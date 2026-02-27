@@ -112,11 +112,28 @@ const SimilarStations = ({ favorites = [], onToggleFavorite }) => {
           <Sparkles className="w-4 h-4 text-accent" />
           <h3 className="font-semibold text-sm text-foreground">Stations Like This</h3>
         </div>
-        {currentStation.tags && (
-          <span className="text-xs text-muted-foreground bg-white/5 px-2 py-1 rounded-full">
-            {currentStation.tags.split(',')[0]}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {currentStation.tags && (
+            <span className="text-xs text-muted-foreground bg-white/5 px-2 py-1 rounded-full hidden sm:inline">
+              {currentStation.tags.split(',')[0]}
+            </span>
+          )}
+          <Button
+            data-testid="shuffle-similar-btn"
+            variant="outline"
+            size="sm"
+            onClick={shuffleSimilar}
+            disabled={shuffling || loading}
+            className="h-7 text-xs border-accent/30 hover:border-accent hover:bg-accent/10 text-accent"
+          >
+            {shuffling ? (
+              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+            ) : (
+              <Shuffle className="w-3 h-3 mr-1" />
+            )}
+            Shuffle
+          </Button>
+        </div>
       </div>
 
       {loading ? (
