@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Sparkles, ChevronRight, Loader2, Radio } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles, ChevronLeft, ChevronRight, Loader2, Radio } from 'lucide-react';
 import { Button } from './ui/button';
-import { ScrollArea, ScrollBar } from './ui/scroll-area';
 import { usePlayer } from '../context/PlayerContext';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) => {
+const SimilarStations = ({ favorites = [], onToggleFavorite }) => {
   const { currentStation, playStation, isPlaying } = usePlayer();
   const [similarStations, setSimilarStations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const scrollContainerRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     if (!currentStation) {
@@ -21,11 +23,9 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
     const fetchSimilar = async () => {
       setLoading(true);
       try {
-        // Get primary tag/genre from current station
         const tags = currentStation.tags?.split(',').map(t => t.trim()).filter(Boolean) || [];
         const primaryTag = tags[0] || 'pop';
         
-        // Fetch stations with similar tags
         const response = await axios.get(`${API}/stations/search`, {
           params: {
             tag: primaryTag,
@@ -33,11 +33,10 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
           }
         });
 
-        // Filter out current station and shuffle
         const filtered = response.data
           .filter(s => s.stationuuid !== currentStation.stationuuid)
           .sort(() => Math.random() - 0.5)
-          .slice(0, 10);
+          .slice(0, 12);
 
         setSimilarStations(filtered);
       } catch (error) {
@@ -51,6 +50,32 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
     fetchSimilar();
   }, [currentStation?.stationuuid]);
 
+  // Check scroll position
+  const checkScrollPosition = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      setCanScrollLeft(container.scrollLeft > 0);
+      setCanScrollRight(container.scrollLeft < container.scrollWidth - container.clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    checkScrollPosition();
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', checkScrollPosition);
+      return () => container.removeEventListener('scroll', checkScrollPosition);
+    }
+  }, [similarStations]);
+
+  const scroll = (direction) => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      const scrollAmount = direction === 'left' ? -200 : 200;
+      container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   if (!currentStation) return null;
 
   return (
@@ -58,7 +83,7 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-accent" />
-          <h3 className="font-semibold text-sm">Stations Like This</h3>
+          <h3 className="font-semibold text-sm text-foreground">Stations Like This</h3>
         </div>
         {currentStation.tags && (
           <span className="text-xs text-muted-foreground bg-white/5 px-2 py-1 rounded-full">
@@ -68,7 +93,7 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-20">
+        <div className="flex items-center justify-center h-24">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
         </div>
       ) : similarStations.length === 0 ? (
@@ -76,8 +101,26 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
           No similar stations found
         </p>
       ) : (
-        <ScrollArea className="w-full">
-          <div className="flex gap-3 pb-2">
+        <div className="relative">
+          {/* Left Arrow */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => scroll('left')}
+            disabled={!canScrollLeft}
+            className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-background/80 backdrop-blur border border-white/10 shadow-lg transition-opacity ${
+              canScrollLeft ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <ChevronLeft className="w-4 h-4 text-foreground" />
+          </Button>
+
+          {/* Scrollable Container */}
+          <div 
+            ref={scrollContainerRef}
+            className="flex gap-3 overflow-x-auto scrollbar-thin scrollbar-track-muted/20 scrollbar-thumb-primary/50 hover:scrollbar-thumb-primary pb-2 px-1"
+            style={{ scrollbarWidth: 'thin' }}
+          >
             {similarStations.map((station) => {
               const isCurrentPlaying = currentStation?.stationuuid === station.stationuuid && isPlaying;
               
@@ -85,9 +128,9 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
                 <div
                   key={station.stationuuid}
                   onClick={() => playStation(station)}
-                  className="flex-shrink-0 w-20 sm:w-24 cursor-pointer group"
+                  className="flex-shrink-0 w-24 sm:w-28 cursor-pointer group"
                 >
-                  <div className={`relative aspect-square rounded-lg overflow-hidden mb-1.5 border ${
+                  <div className={`relative aspect-square rounded-lg overflow-hidden mb-1.5 border-2 ${
                     isCurrentPlaying ? 'border-primary ring-2 ring-primary/30' : 'border-white/10 group-hover:border-primary/30'
                   } transition-all`}>
                     {station.favicon ? (
@@ -104,15 +147,34 @@ const SimilarStations = ({ onPlayStation, favorites = [], onToggleFavorite }) =>
                     <div className={`${station.favicon ? 'hidden' : 'flex'} w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 items-center justify-center`}>
                       <Radio className="w-6 h-6 text-primary" />
                     </div>
+                    
+                    {/* Play overlay */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                        <span className="text-black text-xs">▶</span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[10px] sm:text-xs font-medium truncate">{station.name}</p>
+                  <p className="text-[10px] sm:text-xs font-medium truncate text-foreground">{station.name}</p>
                   <p className="text-[9px] sm:text-[10px] text-muted-foreground truncate">{station.country}</p>
                 </div>
               );
             })}
           </div>
-          <ScrollBar orientation="horizontal" />
-        </ScrollArea>
+
+          {/* Right Arrow */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => scroll('right')}
+            disabled={!canScrollRight}
+            className={`absolute right-0 top-1/2 -translate-y-1/2 z-10 h-8 w-8 rounded-full bg-background/80 backdrop-blur border border-white/10 shadow-lg transition-opacity ${
+              canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <ChevronRight className="w-4 h-4 text-foreground" />
+          </Button>
+        </div>
       )}
     </div>
   );
