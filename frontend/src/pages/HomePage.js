@@ -8,6 +8,7 @@ import SearchBar from '../components/SearchBar';
 import HistorySection from '../components/HistorySection';
 import DiscoverButton from '../components/DiscoverButton';
 import SimilarStations from '../components/SimilarStations';
+import RelatedPodcasts from '../components/RelatedPodcasts';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Skeleton } from '../components/ui/skeleton';
