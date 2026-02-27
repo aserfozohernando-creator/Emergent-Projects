@@ -169,9 +169,25 @@ const HomePage = () => {
             </p>
           </div>
 
-          {/* Search Bar */}
+          {/* Search Bar with Discover Button */}
           <div className="max-w-xl mx-auto mb-4 md:mb-6">
-            <SearchBar onSearch={searchStations} />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SearchBar onSearch={searchStations} />
+              </div>
+              <DiscoverButton />
+              {!notificationsEnabled && 'Notification' in window && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={enableNotifications}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Enable notifications"
+                >
+                  <Bell className="w-5 h-5" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Quick Region Access - Mobile First */}
