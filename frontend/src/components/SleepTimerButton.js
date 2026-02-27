@@ -9,10 +9,19 @@ import {
   DropdownMenuSeparator,
 } from './ui/dropdown-menu';
 import { usePlayer } from '../context/PlayerContext';
+import { useConfig } from '../context/ConfigContext';
 
 const SleepTimerButton = ({ className = '' }) => {
   const { sleepTimer, sleepTimeRemaining, startSleepTimer, cancelSleepTimer } = usePlayer();
+  const { getFeatureConfig } = useConfig();
   const [isOpen, setIsOpen] = useState(false);
+
+  const timerConfig = getFeatureConfig('timer');
+  
+  // Check if sleep timer is enabled
+  if (timerConfig?.sleep_timer_enabled === false) {
+    return null;
+  }
 
   const formatTime = (seconds) => {
     if (seconds === null || seconds === undefined) return '';
@@ -21,14 +30,12 @@ const SleepTimerButton = ({ className = '' }) => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const timerOptions = [
-    { label: '5 minutes', value: 5 },
-    { label: '15 minutes', value: 15 },
-    { label: '30 minutes', value: 30 },
-    { label: '45 minutes', value: 45 },
-    { label: '60 minutes', value: 60 },
-    { label: '90 minutes', value: 90 },
-  ];
+  // Get timer options from config or use defaults
+  const configOptions = timerConfig?.sleep_timer_options || [5, 15, 30, 45, 60, 90];
+  const timerOptions = configOptions.map(value => ({
+    label: `${value} minutes`,
+    value: value
+  }));
 
   if (sleepTimer !== null && sleepTimeRemaining !== null) {
     return (
