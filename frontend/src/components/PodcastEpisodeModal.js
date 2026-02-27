@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Play, Pause, Clock, Calendar, Loader2, Volume2, VolumeX, SkipBack, SkipForward } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Button } from './ui/button';
 import { Slider } from './ui/slider';
 import { ScrollArea } from './ui/scroll-area';
