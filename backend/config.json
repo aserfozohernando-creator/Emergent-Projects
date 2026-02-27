@@ -11,7 +11,7 @@
       "max_podcasts": 25
     },
     "podcasts": {
-      "enabled": false,
+      "enabled": true,
       "allow_playback": true,
       "max_episodes_display": 10
     },
