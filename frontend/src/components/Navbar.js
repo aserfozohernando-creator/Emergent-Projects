@@ -116,6 +116,30 @@ const Navbar = () => {
             </Link>
           ))}
           
+          {/* Export All Data Button - After Podcasts */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  data-testid="export-all-btn"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportAll}
+                  disabled={isExportingAll}
+                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-white/5 rounded-lg sm:rounded-xl"
+                >
+                  {isExportingAll ? (
+                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
+                  ) : (
+                    <FileArchive className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  )}
+                  <span className="hidden md:block font-medium">Export All</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export all stations & podcasts as ZIP (CSV files)</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
           {/* Divider */}
           <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block" />
           
