@@ -32,6 +32,7 @@ export const PlayerProvider = ({ children }) => {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const streamCheckTimeoutRef = useRef(null);
+  const stalledTimeoutRef = useRef(null);
   const hasReceivedDataRef = useRef(false);
   const sleepTimerRef = useRef(null);
   const sleepIntervalRef = useRef(null);
