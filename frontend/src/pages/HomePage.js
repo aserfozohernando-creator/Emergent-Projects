@@ -327,6 +327,12 @@ const HomePage = () => {
               </div>
             </div>
           </div>
+
+          {/* Recently Played History */}
+          <HistorySection 
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+          />
         </div>
       </div>
     </div>
