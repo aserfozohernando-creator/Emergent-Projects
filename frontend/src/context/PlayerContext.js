@@ -662,17 +662,19 @@ export const PlayerProvider = ({ children }) => {
   const stop = useCallback(() => {
     const audio = audioRef.current;
     audio.pause();
+    cleanupHls();
     audio.src = '';
     setCurrentStation(null);
     setIsPlaying(false);
     setError(null);
     setIsLoading(false);
     hasReceivedDataRef.current = false;
+    currentStreamTypeRef.current = 'unknown';
     
     if (streamCheckTimeoutRef.current) {
       clearTimeout(streamCheckTimeoutRef.current);
     }
-  }, []);
+  }, [cleanupHls]);
 
   const updateVolume = useCallback((newVolume) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
