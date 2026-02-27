@@ -86,10 +86,20 @@ Build a "Global Radio Station" application to listen to music from all over the 
    - JSON backup download
    - Import and merge from backup
 
+### Session 3 (Feb 27, 2026)
+1. ✅ Auto-Offline on Playback Failure
+   - When a station fails to play, automatically marked as offline
+   - Station moves to bottom of list (with other offline stations)
+   - Red indicator shown on station card
+2. ✅ Navbar Export/Import Buttons
+   - Download icon (Export) visible in navbar on all pages
+   - Upload icon (Import) visible in navbar on all pages
+   - Easy access to backup/restore favorites from any page
+
 ### Testing Results
 - Backend: 100% (33/33 tests passed)
 - Frontend: 100% (all features verified)
-- Test files: `/app/test_reports/iteration_1.json`, `/app/test_reports/iteration_2.json`
+- Test files: `/app/test_reports/iteration_1.json`, `/app/test_reports/iteration_2.json`, `/app/test_reports/iteration_3.json`
 
 ## File Structure
 ```
