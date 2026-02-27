@@ -634,7 +634,7 @@ export const PlayerProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentStation, isPlaying, isLoading, addToHistory, setupAudioAnalyser, showNotification, updateStationHealth]);
+  }, [currentStation, isPlaying, isLoading, addToHistory, setupAudioAnalyser, showNotification, updateStationHealth, cleanupHls]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
