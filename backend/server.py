@@ -681,6 +681,120 @@ async def get_podcast_genres():
         ]
     }
 
+@api_router.get("/podcasts/{podcast_id}/episodes", response_model=List[PodcastEpisode])
+async def get_podcast_episodes(
+    podcast_id: str,
+    limit: int = Query(20, le=50)
+):
+    """Get episodes for a specific podcast by fetching and parsing its RSS feed"""
+    async with httpx.AsyncClient(timeout=20.0) as http_client:
+        try:
+            # First get the podcast info to get the feed URL
+            lookup_response = await http_client.get(
+                f"{ITUNES_PODCAST_API}/lookup",
+                params={"id": podcast_id, "entity": "podcast"}
+            )
+            lookup_response.raise_for_status()
+            lookup_data = lookup_response.json()
+            
+            if not lookup_data.get("results"):
+                raise HTTPException(status_code=404, detail="Podcast not found")
+            
+            podcast_info = lookup_data["results"][0]
+            feed_url = podcast_info.get("feedUrl")
+            
+            if not feed_url:
+                raise HTTPException(status_code=404, detail="Podcast feed not available")
+            
+            # Fetch and parse the RSS feed
+            feed_response = await http_client.get(feed_url, follow_redirects=True)
+            feed_response.raise_for_status()
+            
+            # Parse XML
+            root = ET.fromstring(feed_response.text)
+            channel = root.find("channel")
+            
+            if channel is None:
+                raise HTTPException(status_code=500, detail="Invalid podcast feed")
+            
+            episodes = []
+            podcast_image = podcast_info.get("artworkUrl600", "")
+            
+            for item in channel.findall("item")[:limit]:
+                # Get episode ID from guid or generate from title
+                guid = item.find("guid")
+                episode_id = guid.text if guid is not None and guid.text else hashlib.md5(
+                    (item.find("title").text or "").encode()
+                ).hexdigest()
+                
+                # Get audio URL from enclosure
+                enclosure = item.find("enclosure")
+                audio_url = ""
+                if enclosure is not None:
+                    audio_url = enclosure.get("url", "")
+                
+                # Skip episodes without audio
+                if not audio_url:
+                    continue
+                
+                # Get duration
+                duration = 0
+                duration_elem = item.find("{http://www.itunes.com/dtds/podcast-1.0.dtd}duration")
+                if duration_elem is not None and duration_elem.text:
+                    try:
+                        # Duration can be in seconds or HH:MM:SS format
+                        dur_text = duration_elem.text
+                        if ":" in dur_text:
+                            parts = dur_text.split(":")
+                            if len(parts) == 3:
+                                duration = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                            elif len(parts) == 2:
+                                duration = int(parts[0]) * 60 + int(parts[1])
+                        else:
+                            duration = int(dur_text)
+                    except:
+                        pass
+                
+                # Get description
+                description = ""
+                desc_elem = item.find("description")
+                if desc_elem is not None and desc_elem.text:
+                    # Remove HTML tags
+                    import re
+                    description = re.sub('<[^<]+?>', '', desc_elem.text)[:500]
+                
+                # Get published date
+                pub_date = ""
+                pub_elem = item.find("pubDate")
+                if pub_elem is not None and pub_elem.text:
+                    pub_date = pub_elem.text
+                
+                # Get episode image or use podcast image
+                episode_image = podcast_image
+                image_elem = item.find("{http://www.itunes.com/dtds/podcast-1.0.dtd}image")
+                if image_elem is not None:
+                    episode_image = image_elem.get("href", podcast_image)
+                
+                episode = PodcastEpisode(
+                    id=episode_id,
+                    title=item.find("title").text or "Untitled",
+                    description=description,
+                    audio_url=audio_url,
+                    duration=duration,
+                    published=pub_date,
+                    image=episode_image
+                )
+                episodes.append(episode)
+            
+            return episodes
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to fetch podcast episodes: {e}")
+            raise HTTPException(status_code=502, detail="Failed to fetch podcast episodes")
+        except ET.ParseError as e:
+            logger.error(f"Failed to parse podcast feed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to parse podcast feed")
+
 # Favorites endpoints (stored in MongoDB)
 @api_router.post("/favorites", response_model=FavoriteStation)
 async def add_favorite(favorite: FavoriteCreate):
