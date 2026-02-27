@@ -7,7 +7,7 @@
   "features": {
     "favorites": {
       "enabled": true,
-      "max_stations": 50,
+      "max_stations": 10,
       "max_podcasts": 25
     },
     "podcasts": {
@@ -18,7 +18,13 @@
     "timer": {
       "sleep_timer_enabled": true,
       "wake_alarm_enabled": true,
-      "sleep_timer_options": [5, 10, 15, 30, 60],
+      "sleep_timer_options": [
+        5,
+        10,
+        15,
+        30,
+        60
+      ],
       "default_sleep_minutes": 30
     },
     "playback": {
@@ -45,8 +51,18 @@
       "max_results": 50
     },
     "regions": {
-      "enabled_regions": ["europe", "americas", "asia", "russia", "africa", "oceania"],
-      "enabled_countries": ["PL", "HU"],
+      "enabled_regions": [
+        "europe",
+        "americas",
+        "asia",
+        "russia",
+        "africa",
+        "oceania"
+      ],
+      "enabled_countries": [
+        "PL",
+        "HU"
+      ],
       "show_region_buttons": true
     }
   },
