@@ -78,6 +78,31 @@ const SimilarStations = ({ favorites = [], onToggleFavorite }) => {
     }
   };
 
+  const shuffleSimilar = async () => {
+    if (!currentStation) return;
+    
+    setShuffling(true);
+    try {
+      const tags = currentStation.tags?.split(',').map(t => t.trim()).filter(Boolean) || [];
+      const primaryTag = tags[0] || 'pop';
+      
+      const response = await axios.get(`${API}/stations/shuffle-similar`, {
+        params: {
+          tag: primaryTag,
+          exclude_id: currentStation.stationuuid
+        }
+      });
+      
+      playStation(response.data);
+      toast.success(`Now playing: ${response.data.name}`);
+    } catch (error) {
+      console.error('Failed to shuffle:', error);
+      toast.error('Failed to find similar station');
+    } finally {
+      setShuffling(false);
+    }
+  };
+
   if (!currentStation) return null;
 
   return (
