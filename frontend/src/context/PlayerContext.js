@@ -473,19 +473,24 @@ export const PlayerProvider = ({ children }) => {
 
     if (currentStation?.stationuuid === station.stationuuid && isPlaying) {
       audio.pause();
+      cleanupHls();
       setIsPlaying(false);
       setIsLoading(false);
       return;
     }
 
     try {
+      // Stop current playback and cleanup
       audio.pause();
+      cleanupHls();
       audio.src = '';
       
       const streamUrl = station.url_resolved || station.url;
+      const streamType = getStreamType(streamUrl);
+      currentStreamTypeRef.current = streamType;
       
-      audio.src = streamUrl;
-      audio.load();
+      console.log(`Playing stream: ${streamUrl} (type: ${streamType})`);
+      
       setCurrentStation(station);
       addToHistory(station);
       
@@ -501,15 +506,94 @@ export const PlayerProvider = ({ children }) => {
           setIsPlaying(false);
           toast.error(errorMsg);
           audio.pause();
+          cleanupHls();
           audio.src = '';
           updateStationHealth(station.stationuuid, false);
         }
-      }, 15000); // 15 second timeout
+      }, 20000); // 20 second timeout
       
-      await audio.play();
-      setIsPlaying(true);
-      toast.success(`Now playing: ${station.name}`);
-      showNotification('Now Playing', station.name, station.favicon);
+      // Handle HLS streams
+      if (streamType === 'hls') {
+        if (Hls.isSupported()) {
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+            maxBufferLength: 30,
+            maxMaxBufferLength: 600,
+            startLevel: -1, // Auto quality selection
+            xhrSetup: (xhr) => {
+              xhr.withCredentials = false;
+            }
+          });
+          
+          hlsRef.current = hls;
+          
+          hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+            console.log('HLS: Media attached');
+            hls.loadSource(streamUrl);
+          });
+          
+          hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+            console.log('HLS: Manifest parsed');
+            try {
+              await audio.play();
+              setIsPlaying(true);
+              hasReceivedDataRef.current = true;
+              toast.success(`Now playing: ${station.name}`);
+              showNotification('Now Playing', station.name, station.favicon);
+            } catch (e) {
+              console.error('HLS play error:', e);
+              setError('Failed to play HLS stream');
+              setIsLoading(false);
+            }
+          });
+          
+          hls.on(Hls.Events.ERROR, (event, data) => {
+            console.error('HLS error:', data);
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.log('HLS: Network error, trying to recover');
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.log('HLS: Media error, trying to recover');
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  cleanupHls();
+                  setError('HLS stream error. Try another station.');
+                  setIsLoading(false);
+                  setIsPlaying(false);
+                  updateStationHealth(station.stationuuid, false);
+                  break;
+              }
+            }
+          });
+          
+          hls.attachMedia(audio);
+        } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+          // Safari native HLS support
+          audio.src = streamUrl;
+          audio.load();
+          await audio.play();
+          setIsPlaying(true);
+          toast.success(`Now playing: ${station.name}`);
+          showNotification('Now Playing', station.name, station.favicon);
+        } else {
+          throw new Error('HLS not supported in this browser');
+        }
+      } else {
+        // Standard audio playback for other formats
+        audio.src = streamUrl;
+        audio.load();
+        
+        await audio.play();
+        setIsPlaying(true);
+        toast.success(`Now playing: ${station.name}`);
+        showNotification('Now Playing', station.name, station.favicon);
+      }
       
       // Setup Media Session API for background playback controls
       if ('mediaSession' in navigator) {
