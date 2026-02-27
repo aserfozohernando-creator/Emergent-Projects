@@ -1,0 +1,72 @@
+{
+  "summary": "Comprehensive testing of robust stream verification feature. All features working correctly - stream verification validates audio signatures (MP3, OGG, AAC), detects ICY headers, returns detailed failure reasons, and frontend correctly displays live/offline counts.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_stream_verification.py",
+    "/app/backend/tests/test_new_features.py",
+    "/app/test_reports/pytest/pytest_iteration4.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_stream_verification.py"
+  ],
+  "success_rate": {
+    "backend": "100% (27/27 tests passed)",
+    "frontend": "100% (all UI features verified via Playwright)"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Stream verification feature is fully implemented and tested. Key details: 1) verify_stream_url() in server.py downloads 4KB of audio data and validates signatures (MP3 ID3 tags/frame sync, OGG 'OggS', FLAC 'fLaC', AAC ADTS headers) 2) ICY headers (icy-name, icy-br) are detected as strong indicators of live streams 3) Failure reasons include: timeout, connect_failed, invalid_audio, not_audio, http_xxx, empty_response, no_data 4) Batch verification endpoint returns reason and content_type for each station 5) Frontend displays live/offline counts (e.g., '24 live, 6 offline stations') 6) Live stations (green dot) play successfully, offline stations (red dot) show 'Stream unavailable' 7) Re-verify button re-checks offline stations 8) Stations are sorted with live at top, offline at bottom",
+  "features_tested": {
+    "stream_verification_audio_signatures": {
+      "status": "PASS",
+      "notes": "verify_stream_url() validates MP3 (ID3 tag, frame sync 0xFF 0xE0), OGG ('OggS'), FLAC ('fLaC'), AAC (ADTS 0xFF 0xF0), WAV ('RIFF')"
+    },
+    "stream_verification_icy_headers": {
+      "status": "PASS",
+      "notes": "ICY headers (icy-name, icy-br) detected for Icecast/Shoutcast streams. SomaFM and Radio France streams correctly identified as live via ICY"
+    },
+    "stream_verification_failure_reasons": {
+      "status": "PASS",
+      "notes": "Detailed reasons returned: connect_failed (DNS/connection errors), timeout, http_xxx (status codes), not_audio (text/html content), invalid_audio (binary but no audio signature)"
+    },
+    "batch_verification_endpoint": {
+      "status": "PASS",
+      "notes": "/api/stations/verify-batch returns stationuuid, is_live, checked_at, reason, content_type for each station. Limits to 50 stations max."
+    },
+    "single_verification_endpoint": {
+      "status": "PASS",
+      "notes": "/api/stations/verify/{stationuuid}?url=... returns detailed verification result"
+    },
+    "frontend_live_offline_display": {
+      "status": "PASS",
+      "notes": "Header shows '24 live, 6 offline stations' with green/red wifi icons. Verification happens in background after stations load."
+    },
+    "live_station_playback": {
+      "status": "PASS",
+      "notes": "Clicking MANGORADIO (green dot) shows 'Now playing: MANGORADIO' toast and plays successfully"
+    },
+    "offline_station_error": {
+      "status": "PASS",
+      "notes": "Clicking offline station (red dot) shows 'Stream unavailable' message in player bar"
+    },
+    "reverify_button": {
+      "status": "PASS",
+      "notes": "Re-verify button re-checks offline stations, shows 'All re-verified stations still offline' when unchanged"
+    },
+    "station_sorting": {
+      "status": "PASS",
+      "notes": "sortedStations memo correctly sorts live (green) at top, offline (red) at bottom"
+    }
+  }
+}
