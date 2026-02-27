@@ -4,6 +4,7 @@ import { Toaster } from './components/ui/sonner';
 import { PlayerProvider } from './context/PlayerContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LocalDataProvider } from './context/LocalDataContext';
+import { ConfigProvider } from './context/ConfigContext';
 import Navbar from './components/Navbar';
 import AudioPlayer from './components/AudioPlayer';
 import HomePage from './pages/HomePage';
