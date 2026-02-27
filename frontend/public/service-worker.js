@@ -7,7 +7,6 @@ const STATIC_CACHE = 'globalradio-static-v1';
 const STATIC_FILES = [
   '/',
   '/index.html',
-  '/static/js/bundle.js',
   '/manifest.json'
 ];
 
@@ -42,12 +41,17 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip audio streams (don't cache)
-  if (event.request.url.includes('stream') || 
-      event.request.url.includes('.mp3') ||
-      event.request.url.includes('.aac') ||
-      event.request.url.includes('.ogg')) {
-    return;
+  // Don't cache audio streams - let them pass through for background playback
+  const url = event.request.url;
+  if (url.includes('stream') || 
+      url.includes('.mp3') ||
+      url.includes('.aac') ||
+      url.includes('.ogg') ||
+      url.includes('.m3u') ||
+      url.includes('.pls') ||
+      url.includes('radio') ||
+      url.includes('audio')) {
+    return; // Don't intercept audio requests
   }
 
   event.respondWith(
@@ -84,6 +88,18 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// Handle background audio - keep service worker alive
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'KEEP_ALIVE') {
+    // Acknowledge the keep-alive message
+    event.ports[0].postMessage({ type: 'ALIVE' });
+  }
+  
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Background sync for favorites
 self.addEventListener('sync', (event) => {
   if (event.tag === 'sync-favorites') {
@@ -92,6 +108,25 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncFavorites() {
-  // Sync any pending favorite operations when back online
   console.log('Syncing favorites...');
 }
+
+// Handle notification clicks
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Focus existing window if open
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Open new window if not
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
+  );
+});
