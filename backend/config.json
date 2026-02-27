@@ -7,7 +7,7 @@
   "features": {
     "favorites": {
       "enabled": true,
-      "max_stations": 10,
+      "max_stations": 50,
       "max_podcasts": 25
     },
     "podcasts": {
