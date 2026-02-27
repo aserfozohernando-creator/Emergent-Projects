@@ -7,6 +7,7 @@ const LocalDataContext = createContext(null);
 const FAVORITES_KEY = 'globalradio_favorites';
 const PODCAST_FAVORITES_KEY = 'globalradio_podcast_favorites';
 const STATION_LIVE_STATUS_KEY = 'globalradio_live_status';
+const CONFIG_CACHE_KEY = 'globalradio_config_cache';
 
 export const useLocalData = () => {
   const context = useContext(LocalDataContext);
@@ -21,6 +22,46 @@ export const LocalDataProvider = ({ children }) => {
   const [podcastFavorites, setPodcastFavorites] = useState([]);
   const [stationLiveStatus, setStationLiveStatus] = useState({});
   const [isCheckingStations, setIsCheckingStations] = useState(false);
+  const [configLimits, setConfigLimits] = useState({
+    maxStations: 50,
+    maxPodcasts: 25,
+    favoritesEnabled: true,
+    podcastsEnabled: true
+  });
+
+  // Load config limits from cache or fetch
+  useEffect(() => {
+    try {
+      const cachedConfig = localStorage.getItem(CONFIG_CACHE_KEY);
+      if (cachedConfig) {
+        const parsed = JSON.parse(cachedConfig);
+        setConfigLimits(parsed);
+      }
+    } catch (e) {
+      console.error('Failed to load config cache:', e);
+    }
+    
+    // Fetch fresh config
+    const fetchConfig = async () => {
+      try {
+        const response = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/config`);
+        if (response.ok) {
+          const config = await response.json();
+          const limits = {
+            maxStations: config?.features?.favorites?.max_stations || 50,
+            maxPodcasts: config?.features?.favorites?.max_podcasts || 25,
+            favoritesEnabled: config?.features?.favorites?.enabled !== false,
+            podcastsEnabled: config?.features?.podcasts?.enabled !== false
+          };
+          setConfigLimits(limits);
+          localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(limits));
+        }
+      } catch (e) {
+        console.error('Failed to fetch config:', e);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   // Load data from localStorage on mount
   useEffect(() => {
