@@ -68,6 +68,49 @@ const Navbar = () => {
           {/* Divider */}
           <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block" />
           
+          {/* Export/Import Buttons */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  data-testid="navbar-export-btn"
+                  variant="ghost"
+                  size="icon"
+                  onClick={exportData}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Export favorites backup</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  data-testid="navbar-import-btn"
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleImportClick}
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                >
+                  <Upload className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Import favorites backup</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          
           {/* Alarm Button */}
           <AlarmButton />
           
