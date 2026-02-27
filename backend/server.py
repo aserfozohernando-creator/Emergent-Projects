@@ -795,6 +795,43 @@ async def get_podcast_episodes(
             logger.error(f"Failed to parse podcast feed: {e}")
             raise HTTPException(status_code=500, detail="Failed to parse podcast feed")
 
+# Shuffle similar stations endpoint
+@api_router.get("/stations/shuffle-similar")
+async def shuffle_similar_station(
+    tag: str = Query(..., description="Primary tag/genre to find similar stations"),
+    exclude_id: Optional[str] = Query(None, description="Station ID to exclude from results")
+):
+    """Get a random station similar to the current one based on tags"""
+    import random
+    
+    params = {
+        "tag": tag.lower(),
+        "limit": 50,
+        "order": "random",
+        "hidebroken": "true"
+    }
+    
+    try:
+        stations = await fetch_radio_browser("stations/search", params)
+        
+        # Filter out the excluded station
+        if exclude_id:
+            stations = [s for s in stations if s.get('stationuuid') != exclude_id]
+        
+        if not stations:
+            raise HTTPException(status_code=404, detail="No similar stations found")
+        
+        # Pick a random station
+        station = random.choice(stations)
+        station["source"] = "radio-browser"
+        return station
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to fetch shuffle station: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch similar station")
+
 # Favorites endpoints (stored in MongoDB)
 @api_router.post("/favorites", response_model=FavoriteStation)
 async def add_favorite(favorite: FavoriteCreate):
