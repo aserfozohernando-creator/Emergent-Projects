@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Sparkles, ChevronLeft, ChevronRight, Loader2, Radio } from 'lucide-react';
+import { Sparkles, ChevronLeft, ChevronRight, Loader2, Radio, Shuffle } from 'lucide-react';
 import { Button } from './ui/button';
 import { usePlayer } from '../context/PlayerContext';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -10,6 +11,7 @@ const SimilarStations = ({ favorites = [], onToggleFavorite }) => {
   const { currentStation, playStation, isPlaying } = usePlayer();
   const [similarStations, setSimilarStations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [shuffling, setShuffling] = useState(false);
   const scrollContainerRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
