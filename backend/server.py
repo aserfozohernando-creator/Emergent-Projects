@@ -377,6 +377,16 @@ async def verify_stations_batch(request: StationVerifyRequest):
     
     return results
 
+@api_router.get("/stations/verify/{stationuuid}")
+async def verify_single_station(stationuuid: str, url: str = Query(...)):
+    """Verify a single station's stream URL - useful for quick re-checks"""
+    is_live = await verify_stream_url(url, timeout=15.0)
+    return StationVerifyResult(
+        stationuuid=stationuuid,
+        is_live=is_live,
+        checked_at=datetime.now(timezone.utc).isoformat()
+    )
+
 async def get_combined_stations(
     name: str = None,
     country: str = None,
