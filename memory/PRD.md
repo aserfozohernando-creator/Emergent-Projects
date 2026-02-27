@@ -9,8 +9,12 @@ Build a "Global Radio Station" application to listen to music from all over the 
 - **Station Browsing**: Browse by world map, region (Europe, Americas, Asia, Russia, Africa, Oceania), and specific countries
 - **Search & Filter**: Search stations by name, filter by genre/tags
 - **Audio Player**: Persistent bottom audio player with play/pause, volume control
-- **Station Health**: Visual indicators (green/red dots) showing stream reliability
-- **Favorites System**: Save favorite stations (MongoDB-backed persistence)
+- **Station Health Checking**: Background verification of all stations with live/offline status
+  - Green indicator = Live (stream available)
+  - Red indicator = Offline (not responding)
+  - Stations sorted: live first, offline at bottom
+  - Re-verify button to recheck offline stations
+- **Favorites System**: Save favorite stations (localStorage-based, browser persistence)
 - **Recently Played**: Track listening history (localStorage)
 - **Similar Stations**: "Stations Like This" recommendations based on genre/tags
 - **Shuffle Similar**: Random station playback from similar stations
@@ -19,12 +23,14 @@ Build a "Global Radio Station" application to listen to music from all over the 
 - **Podcast Discovery**: Browse and search podcasts via iTunes API
 - **Genre Filtering**: Filter podcasts by category
 - **Episode Listing**: Expandable episode lists for each podcast
-- **In-App Playback**: Full podcast player modal with:
-  - Play/pause controls
-  - Progress bar with seek
-  - Skip forward/backward (30s/15s)
-  - Volume control
-  - Episode metadata display
+- **In-App Playback**: Full podcast player modal with controls
+- **Podcast Favorites**: Save favorite podcasts (localStorage-based)
+
+### Data Management Features
+- **LocalStorage Database**: All favorites stored in browser
+- **Export Functionality**: Download JSON backup of favorites and podcasts
+- **Import Functionality**: Upload and merge backup from another device
+- **Clear All**: Reset all local data with confirmation
 
 ### Additional Features
 - **Sleep Timer**: Auto-stop after set duration (5/10/15/30/60 min)
@@ -37,7 +43,7 @@ Build a "Global Radio Station" application to listen to music from all over the 
 ## Tech Stack
 - **Frontend**: React, Tailwind CSS, Shadcn/UI, React Router
 - **Backend**: FastAPI (Python)
-- **Database**: MongoDB (for favorites persistence)
+- **Database**: LocalStorage (for favorites persistence)
 - **External APIs**: 
   - Radio Browser API (community radio database)
   - TuneIn API (additional radio stations)
@@ -52,12 +58,7 @@ Build a "Global Radio Station" application to listen to music from all over the 
 - `GET /api/stations/by-region/{region}` - By region
 - `GET /api/stations/by-genre/{genre}` - By genre
 - `GET /api/stations/shuffle-similar` - Random similar station
-
-### Favorites
-- `GET /api/favorites` - List all favorites
-- `POST /api/favorites` - Add favorite
-- `DELETE /api/favorites/{stationuuid}` - Remove favorite
-- `GET /api/favorites/check/{stationuuid}` - Check if favorited
+- `POST /api/stations/verify-batch` - Verify multiple streams (health check)
 
 ### Podcasts
 - `GET /api/podcasts/search` - Search podcasts
@@ -65,26 +66,52 @@ Build a "Global Radio Station" application to listen to music from all over the 
 - `GET /api/podcasts/{id}/episodes` - Get episode list with audio URLs
 - `GET /api/podcasts/genres` - Available genres
 
-## Completed Work (Feb 27, 2026)
+## Completed Work
 
-### Session Tasks Completed
-1. ✅ **Fixed Favorites Bug**: Verified favorites work on playing stations and green-health stations
-2. ✅ **Podcast Episode Playback**: Full in-app player modal with controls
-3. ✅ **Shuffle Similar Button**: Random station from recommendations
+### Session 1 (Feb 27, 2026)
+1. ✅ Fixed Favorites Bug (was already working)
+2. ✅ Podcast Episode Playback with in-app player
+3. ✅ Shuffle Similar button
+
+### Session 2 (Feb 27, 2026)
+1. ✅ Background Station Health Checking
+   - Automatic verification after stations load
+   - Live/offline counts in header
+   - Stations sorted by health status
+2. ✅ Re-verify Button for offline stations
+3. ✅ LocalStorage Database for favorites
+   - Station favorites in browser storage
+   - Podcast favorites in browser storage
+4. ✅ Export/Import Functionality
+   - JSON backup download
+   - Import and merge from backup
 
 ### Testing Results
-- Backend: 100% (20/20 tests passed)
+- Backend: 100% (33/33 tests passed)
 - Frontend: 100% (all features verified)
-- Test file: `/app/backend/tests/test_global_radio.py`
+- Test files: `/app/test_reports/iteration_1.json`, `/app/test_reports/iteration_2.json`
+
+## File Structure
+```
+/app
+├── backend/
+│   ├── server.py           # FastAPI: All API endpoints
+│   └── tests/              # Backend tests
+├── frontend/
+│   └── src/
+│       ├── components/     # UI components
+│       ├── context/        
+│       │   ├── PlayerContext.js    # Audio playback state
+│       │   ├── ThemeContext.js     # Dark/Light theme
+│       │   └── LocalDataContext.js # LocalStorage management
+│       └── pages/          # Page components
+```
 
 ## Remaining/Future Tasks
 
-### P1 (High Priority)
-- None currently
-
 ### P2 (Medium Priority)
 - AI-powered station recommendations
-- User accounts for cross-device favorites sync
+- User accounts for cross-device sync (optional cloud backup)
 
 ### P3 (Low Priority)
 - Social sharing improvements
