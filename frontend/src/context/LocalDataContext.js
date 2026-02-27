@@ -133,6 +133,16 @@ export const LocalDataProvider = ({ children }) => {
 
   // Add station to favorites
   const addFavorite = useCallback((station) => {
+    if (!configLimits.favoritesEnabled) {
+      toast.error('Favorites feature is disabled');
+      return false;
+    }
+    
+    if (favorites.length >= configLimits.maxStations) {
+      toast.error(`Maximum ${configLimits.maxStations} favorites reached. Remove some to add more.`);
+      return false;
+    }
+    
     const exists = favorites.some(f => f.stationuuid === station.stationuuid);
     if (exists) {
       toast.info('Station already in favorites');
@@ -152,9 +162,9 @@ export const LocalDataProvider = ({ children }) => {
     
     const newFavorites = [favoriteStation, ...favorites];
     saveFavorites(newFavorites);
-    toast.success('Added to favorites');
+    toast.success(`Added to favorites (${newFavorites.length}/${configLimits.maxStations})`);
     return true;
-  }, [favorites, saveFavorites]);
+  }, [favorites, saveFavorites, configLimits]);
 
   // Remove station from favorites
   const removeFavorite = useCallback((stationuuid) => {
