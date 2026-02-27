@@ -64,6 +64,7 @@ export const PlayerProvider = ({ children }) => {
   const [analyserData, setAnalyserData] = useState(new Uint8Array(32));
   
   const audioRef = useRef(new Audio());
+  const hlsRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const streamCheckTimeoutRef = useRef(null);
@@ -72,6 +73,15 @@ export const PlayerProvider = ({ children }) => {
   const sleepTimerRef = useRef(null);
   const sleepIntervalRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const currentStreamTypeRef = useRef('unknown');
+
+  // Cleanup HLS instance
+  const cleanupHls = useCallback(() => {
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+  }, []);
 
   // Load history and health from localStorage
   useEffect(() => {
