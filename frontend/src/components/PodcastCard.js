@@ -90,9 +90,23 @@ const PodcastCard = ({ podcast }) => {
 
           {/* Podcast Info */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-sm sm:text-base truncate text-foreground hover:text-purple-400 transition-colors">
-              {podcast.title}
-            </h3>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="font-semibold text-sm sm:text-base truncate text-foreground hover:text-purple-400 transition-colors">
+                {podcast.title}
+              </h3>
+              <Button
+                data-testid={`podcast-fav-btn-${podcast.id}`}
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePodcastFavorite(podcast);
+                }}
+                className={`h-7 w-7 flex-shrink-0 ${isFavorite ? 'text-purple-400' : 'text-muted-foreground hover:text-purple-400'}`}
+              >
+                <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+              </Button>
+            </div>
             <p className="text-xs sm:text-sm text-muted-foreground truncate mt-0.5">
               {podcast.author}
             </p>
