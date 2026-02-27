@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Podcast, Search, ExternalLink, Loader2, Headphones, TrendingUp } from 'lucide-react';
+import { Podcast, Search, Headphones, TrendingUp } from 'lucide-react';
 import SearchBar from '../components/SearchBar';
+import PodcastCard from '../components/PodcastCard';
 import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Skeleton } from '../components/ui/skeleton';
 
