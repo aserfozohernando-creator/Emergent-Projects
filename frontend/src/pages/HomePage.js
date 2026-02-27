@@ -146,7 +146,8 @@ const HomePage = () => {
           {/* Quick Region Access - Mobile First */}
           <div className="mb-4 md:mb-6">
             <div className="flex flex-wrap justify-center gap-2">
-              {['europe', 'americas', 'asia', 'russia'].map((region) => (
+              {/* Regions */}
+              {['europe', 'americas', 'asia'].map((region) => (
                 <Button
                   key={region}
                   data-testid={`quick-region-${region}`}
@@ -162,6 +163,40 @@ const HomePage = () => {
                   {region.charAt(0).toUpperCase() + region.slice(1)}
                 </Button>
               ))}
+              {/* Countries */}
+              {[
+                { code: 'PL', name: 'Poland' },
+                { code: 'HU', name: 'Hungary' }
+              ].map((country) => (
+                <Button
+                  key={country.code}
+                  data-testid={`quick-country-${country.code.toLowerCase()}`}
+                  variant={selectedRegion === country.code ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => fetchStationsByCountry(country.code, country.name)}
+                  className={`rounded-full text-xs sm:text-sm px-3 sm:px-4 ${
+                    selectedRegion === country.code 
+                      ? 'bg-secondary text-secondary-foreground' 
+                      : 'border-white/10 hover:border-secondary/50'
+                  }`}
+                >
+                  {country.name}
+                </Button>
+              ))}
+              {/* Russia */}
+              <Button
+                data-testid="quick-region-russia"
+                variant={selectedRegion === 'russia' ? "default" : "outline"}
+                size="sm"
+                onClick={() => fetchStationsByRegion('russia')}
+                className={`rounded-full text-xs sm:text-sm px-3 sm:px-4 ${
+                  selectedRegion === 'russia' 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'border-white/10 hover:border-primary/50'
+                }`}
+              >
+                Russia
+              </Button>
             </div>
           </div>
 
