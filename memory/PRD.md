@@ -102,6 +102,18 @@ Build a "Global Radio Station" application to listen to music from all over the 
    - Detects audio content types and ICY headers
    - Longer stall timeout (20s) for slow streams
    - Better handling of streaming responses
+4. ✅ Backend Configuration System (`config.json`)
+   - Editable JSON file at `/app/backend/config.json`
+   - Controls all app features dynamically:
+     - `features.favorites.max_stations` - Max favoritable stations
+     - `features.favorites.max_podcasts` - Max favoritable podcasts  
+     - `features.podcasts.enabled` - Show/hide podcasts feature
+     - `features.timer.sleep_timer_enabled` - Enable/disable sleep timer
+     - `features.timer.wake_alarm_enabled` - Enable/disable wake alarm
+     - `features.export_import.enabled` - Enable/disable backup feature
+     - `features.ui.theme_toggle_enabled` - Show/hide theme toggle
+   - API endpoints: GET/PUT `/api/config`
+   - Frontend auto-adjusts based on config values
 
 ### Testing Results
 - Backend: 100% (33/33 tests passed)
