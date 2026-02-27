@@ -3,6 +3,10 @@ import { toast } from 'sonner';
 
 const PlayerContext = createContext(null);
 
+// Local storage keys
+const HISTORY_KEY = 'globalradio_history';
+const HEALTH_KEY = 'globalradio_health';
+
 export const usePlayer = () => {
   const context = useContext(PlayerContext);
   if (!context) {
@@ -17,9 +21,193 @@ export const PlayerProvider = ({ children }) => {
   const [volume, setVolume] = useState(0.7);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [sleepTimer, setSleepTimer] = useState(null);
+  const [sleepTimeRemaining, setSleepTimeRemaining] = useState(null);
+  const [stationHealth, setStationHealth] = useState({});
+  const [analyserData, setAnalyserData] = useState(new Uint8Array(32));
+  
   const audioRef = useRef(new Audio());
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
   const streamCheckTimeoutRef = useRef(null);
   const hasReceivedDataRef = useRef(false);
+  const sleepTimerRef = useRef(null);
+  const sleepIntervalRef = useRef(null);
+  const animationFrameRef = useRef(null);
+
+  // Load history and health from localStorage
+  useEffect(() => {
+    try {
+      const savedHistory = localStorage.getItem(HISTORY_KEY);
+      if (savedHistory) {
+        setHistory(JSON.parse(savedHistory));
+      }
+      const savedHealth = localStorage.getItem(HEALTH_KEY);
+      if (savedHealth) {
+        setStationHealth(JSON.parse(savedHealth));
+      }
+    } catch (e) {
+      console.error('Failed to load from localStorage:', e);
+    }
+  }, []);
+
+  // Save history to localStorage
+  const saveHistory = useCallback((newHistory) => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory));
+    } catch (e) {
+      console.error('Failed to save history:', e);
+    }
+  }, []);
+
+  // Save health to localStorage
+  const saveHealth = useCallback((newHealth) => {
+    try {
+      localStorage.setItem(HEALTH_KEY, JSON.stringify(newHealth));
+    } catch (e) {
+      console.error('Failed to save health:', e);
+    }
+  }, []);
+
+  // Add station to history
+  const addToHistory = useCallback((station) => {
+    setHistory(prev => {
+      const filtered = prev.filter(s => s.stationuuid !== station.stationuuid);
+      const newHistory = [station, ...filtered].slice(0, 20);
+      saveHistory(newHistory);
+      return newHistory;
+    });
+  }, [saveHistory]);
+
+  // Update station health
+  const updateStationHealth = useCallback((stationId, success) => {
+    setStationHealth(prev => {
+      const current = prev[stationId] || { success: 0, fail: 0 };
+      const updated = {
+        ...prev,
+        [stationId]: {
+          success: success ? current.success + 1 : current.success,
+          fail: success ? current.fail : current.fail + 1,
+          lastPlayed: Date.now()
+        }
+      };
+      saveHealth(updated);
+      return updated;
+    });
+  }, [saveHealth]);
+
+  // Get health status for a station
+  const getStationHealthStatus = useCallback((stationId) => {
+    const health = stationHealth[stationId];
+    if (!health) return 'unknown';
+    const total = health.success + health.fail;
+    if (total < 2) return 'unknown';
+    const rate = health.success / total;
+    if (rate >= 0.8) return 'good';
+    if (rate >= 0.5) return 'fair';
+    return 'poor';
+  }, [stationHealth]);
+
+  // Setup audio analyser for visualizer
+  const setupAudioAnalyser = useCallback(() => {
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioContextRef.current.createMediaElementSource(audioRef.current);
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current.fftSize = 64;
+        source.connect(analyserRef.current);
+        analyserRef.current.connect(audioContextRef.current.destination);
+      } catch (e) {
+        console.error('Failed to setup audio analyser:', e);
+      }
+    }
+  }, []);
+
+  // Update analyser data for visualizer
+  const updateAnalyserData = useCallback(() => {
+    if (analyserRef.current && isPlaying) {
+      const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(data);
+      setAnalyserData(data);
+      animationFrameRef.current = requestAnimationFrame(updateAnalyserData);
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    if (isPlaying && analyserRef.current) {
+      updateAnalyserData();
+    }
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isPlaying, updateAnalyserData]);
+
+  // Sleep timer functions
+  const startSleepTimer = useCallback((minutes) => {
+    // Clear existing timer
+    if (sleepTimerRef.current) {
+      clearTimeout(sleepTimerRef.current);
+    }
+    if (sleepIntervalRef.current) {
+      clearInterval(sleepIntervalRef.current);
+    }
+
+    const endTime = Date.now() + minutes * 60 * 1000;
+    setSleepTimer(minutes);
+    setSleepTimeRemaining(minutes * 60);
+
+    // Update countdown every second
+    sleepIntervalRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
+      setSleepTimeRemaining(remaining);
+      if (remaining <= 0) {
+        clearInterval(sleepIntervalRef.current);
+      }
+    }, 1000);
+
+    // Stop playback when timer ends
+    sleepTimerRef.current = setTimeout(() => {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      setSleepTimer(null);
+      setSleepTimeRemaining(null);
+      toast.info('Sleep timer ended. Goodnight! 🌙');
+    }, minutes * 60 * 1000);
+
+    toast.success(`Sleep timer set for ${minutes} minutes`);
+  }, []);
+
+  const cancelSleepTimer = useCallback(() => {
+    if (sleepTimerRef.current) {
+      clearTimeout(sleepTimerRef.current);
+    }
+    if (sleepIntervalRef.current) {
+      clearInterval(sleepIntervalRef.current);
+    }
+    setSleepTimer(null);
+    setSleepTimeRemaining(null);
+    toast.info('Sleep timer cancelled');
+  }, []);
+
+  // Request notification permission
+  const requestNotificationPermission = useCallback(async () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
+    return Notification.permission === 'granted';
+  }, []);
+
+  // Show notification
+  const showNotification = useCallback((title, body, icon) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(title, { body, icon, silent: true });
+    }
+  }, []);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -39,7 +227,10 @@ export const PlayerProvider = ({ children }) => {
       setError(errorMsg);
       toast.error(errorMsg);
       
-      // Clear timeout
+      if (currentStation) {
+        updateStationHealth(currentStation.stationuuid, false);
+      }
+      
       if (streamCheckTimeoutRef.current) {
         clearTimeout(streamCheckTimeoutRef.current);
       }
@@ -53,20 +244,21 @@ export const PlayerProvider = ({ children }) => {
       setIsLoading(false);
       setIsPlaying(true);
       hasReceivedDataRef.current = true;
+      
+      if (currentStation) {
+        updateStationHealth(currentStation.stationuuid, true);
+      }
     };
 
     const handleStalled = () => {
       console.log('Stream stalled');
-      // Don't immediately error - give it a chance to recover
     };
 
     const handleSuspend = () => {
-      // Stream was suspended (could be normal or an issue)
       console.log('Stream suspended');
     };
 
     const handleTimeUpdate = () => {
-      // We're receiving data, stream is working
       hasReceivedDataRef.current = true;
       setError(null);
     };
@@ -104,12 +296,54 @@ export const PlayerProvider = ({ children }) => {
       if (streamCheckTimeoutRef.current) {
         clearTimeout(streamCheckTimeoutRef.current);
       }
+      if (sleepTimerRef.current) {
+        clearTimeout(sleepTimerRef.current);
+      }
+      if (sleepIntervalRef.current) {
+        clearInterval(sleepIntervalRef.current);
+      }
     };
-  }, []);
+  }, [currentStation, updateStationHealth]);
 
   useEffect(() => {
     audioRef.current.volume = volume;
   }, [volume]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          if (currentStation) togglePlay();
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          updateVolume(Math.min(1, volume + 0.1));
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          updateVolume(Math.max(0, volume - 0.1));
+          break;
+        case 'KeyM':
+          e.preventDefault();
+          updateVolume(volume > 0 ? 0 : 0.7);
+          break;
+        case 'Escape':
+          e.preventDefault();
+          stop();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStation, isPlaying, volume]);
 
   const playStation = useCallback(async (station) => {
     const audio = audioRef.current;
@@ -117,12 +351,10 @@ export const PlayerProvider = ({ children }) => {
     setIsLoading(true);
     hasReceivedDataRef.current = false;
 
-    // Clear any existing timeout
     if (streamCheckTimeoutRef.current) {
       clearTimeout(streamCheckTimeoutRef.current);
     }
 
-    // If clicking the same station that's playing, pause it
     if (currentStation?.stationuuid === station.stationuuid && isPlaying) {
       audio.pause();
       setIsPlaying(false);
@@ -131,19 +363,19 @@ export const PlayerProvider = ({ children }) => {
     }
 
     try {
-      // Stop current playback
       audio.pause();
       audio.src = '';
       
-      // Try url_resolved first, then fall back to url
       const streamUrl = station.url_resolved || station.url;
       
-      // Set new source
       audio.src = streamUrl;
       audio.load();
       setCurrentStation(station);
+      addToHistory(station);
       
-      // Set a timeout to check if stream is actually working
+      // Setup audio analyser on first play
+      setupAudioAnalyser();
+      
       streamCheckTimeoutRef.current = setTimeout(() => {
         if (!hasReceivedDataRef.current && isLoading) {
           const errorMsg = 'Stream not responding. Try another station.';
@@ -153,12 +385,14 @@ export const PlayerProvider = ({ children }) => {
           toast.error(errorMsg);
           audio.pause();
           audio.src = '';
+          updateStationHealth(station.stationuuid, false);
         }
-      }, 10000); // 10 second timeout
+      }, 10000);
       
       await audio.play();
       setIsPlaying(true);
       toast.success(`Now playing: ${station.name}`);
+      showNotification('Now Playing', station.name, station.favicon);
       
     } catch (err) {
       console.error('Play error:', err);
@@ -166,10 +400,11 @@ export const PlayerProvider = ({ children }) => {
       setError(errorMsg);
       setIsPlaying(false);
       toast.error(errorMsg);
+      updateStationHealth(station.stationuuid, false);
     } finally {
       setIsLoading(false);
     }
-  }, [currentStation, isPlaying, isLoading]);
+  }, [currentStation, isPlaying, isLoading, addToHistory, setupAudioAnalyser, showNotification, updateStationHealth]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -210,8 +445,15 @@ export const PlayerProvider = ({ children }) => {
   }, []);
 
   const updateVolume = useCallback((newVolume) => {
-    setVolume(newVolume);
-    audioRef.current.volume = newVolume;
+    const clampedVolume = Math.max(0, Math.min(1, newVolume));
+    setVolume(clampedVolume);
+    audioRef.current.volume = clampedVolume;
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setHistory([]);
+    localStorage.removeItem(HISTORY_KEY);
+    toast.success('History cleared');
   }, []);
 
   const value = {
@@ -220,11 +462,20 @@ export const PlayerProvider = ({ children }) => {
     isLoading,
     error,
     volume,
+    history,
+    sleepTimer,
+    sleepTimeRemaining,
+    analyserData,
     playStation,
     togglePlay,
     stop,
     updateVolume,
-    setError
+    setError,
+    clearHistory,
+    startSleepTimer,
+    cancelSleepTimer,
+    getStationHealthStatus,
+    requestNotificationPermission
   };
 
   return (
