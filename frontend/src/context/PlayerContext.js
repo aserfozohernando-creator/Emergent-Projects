@@ -301,6 +301,20 @@ export const PlayerProvider = ({ children }) => {
 
     const handleStalled = () => {
       console.log('Stream stalled');
+      // If stream stalls for more than 20 seconds, mark as offline
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+      }
+      stalledTimeoutRef.current = setTimeout(() => {
+        if (currentStation && !hasReceivedDataRef.current) {
+          const errorMsg = 'Stream stalled. Station may be offline.';
+          setError(errorMsg);
+          setIsLoading(false);
+          setIsPlaying(false);
+          toast.error(errorMsg);
+          updateStationHealth(currentStation.stationuuid, false);
+        }
+      }, 20000);
     };
 
     const handleSuspend = () => {
@@ -310,6 +324,11 @@ export const PlayerProvider = ({ children }) => {
     const handleTimeUpdate = () => {
       hasReceivedDataRef.current = true;
       setError(null);
+      // Clear stalled timeout when we receive data
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+        stalledTimeoutRef.current = null;
+      }
     };
 
     const handleLoadStart = () => {
