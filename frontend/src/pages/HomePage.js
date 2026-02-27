@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Globe, TrendingUp, RefreshCw } from 'lucide-react';
+import { Globe, TrendingUp, RefreshCw, Bell } from 'lucide-react';
 import WorldMap from '../components/WorldMap';
 import StationCard from '../components/StationCard';
 import SearchBar from '../components/SearchBar';
+import HistorySection from '../components/HistorySection';
+import DiscoverButton from '../components/DiscoverButton';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Skeleton } from '../components/ui/skeleton';
+import { usePlayer } from '../context/PlayerContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
