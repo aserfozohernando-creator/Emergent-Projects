@@ -366,7 +366,6 @@ async def verify_stream_url(url: str, timeout: float = 10.0) -> dict:
     lower_url = url.lower()
     is_hls = '.m3u8' in lower_url or 'm3u8' in lower_url
     is_pls = '.pls' in lower_url
-    is_m3u = '.m3u' in lower_url and '.m3u8' not in lower_url
     
     try:
         headers = {
