@@ -394,6 +394,35 @@ export const PlayerProvider = ({ children }) => {
       toast.success(`Now playing: ${station.name}`);
       showNotification('Now Playing', station.name, station.favicon);
       
+      // Setup Media Session API for background playback controls
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: station.name,
+          artist: station.country || 'Global Radio',
+          album: station.tags?.split(',')[0] || 'Live Radio',
+          artwork: station.favicon ? [
+            { src: station.favicon, sizes: '96x96', type: 'image/png' },
+            { src: station.favicon, sizes: '128x128', type: 'image/png' },
+            { src: station.favicon, sizes: '256x256', type: 'image/png' },
+          ] : []
+        });
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          audio.play();
+          setIsPlaying(true);
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          audio.pause();
+          setIsPlaying(false);
+        });
+        navigator.mediaSession.setActionHandler('stop', () => {
+          audio.pause();
+          audio.src = '';
+          setCurrentStation(null);
+          setIsPlaying(false);
+        });
+      }
+      
     } catch (err) {
       console.error('Play error:', err);
       const errorMsg = 'Failed to play stream. Station may be offline.';
