@@ -424,8 +424,9 @@ export const PlayerProvider = ({ children }) => {
       // Setup audio analyser on first play
       setupAudioAnalyser();
       
+      // Timeout for streams that don't respond at all
       streamCheckTimeoutRef.current = setTimeout(() => {
-        if (!hasReceivedDataRef.current && isLoading) {
+        if (!hasReceivedDataRef.current) {
           const errorMsg = 'Stream not responding. Try another station.';
           setError(errorMsg);
           setIsLoading(false);
@@ -435,7 +436,7 @@ export const PlayerProvider = ({ children }) => {
           audio.src = '';
           updateStationHealth(station.stationuuid, false);
         }
-      }, 10000);
+      }, 15000); // 15 second timeout
       
       await audio.play();
       setIsPlaying(true);
