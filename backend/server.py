@@ -346,102 +346,158 @@ async def fetch_tunein_stations(query: str = None, genre: str = None, limit: int
             logger.error(f"TuneIn API error: {e}")
             return []
 
-async def verify_stream_url(url: str, timeout: float = 8.0) -> bool:
+async def verify_stream_url(url: str, timeout: float = 10.0) -> dict:
     """
-    Robust check if a stream URL is accessible and actually serving audio.
-    Uses HEAD first, then GET with Range header if needed.
+    Comprehensive stream verification that:
+    1. Downloads actual audio data
+    2. Validates audio file signatures (MP3, OGG, AAC, etc.)
+    3. Checks ICY headers for streaming servers
+    4. Returns detailed result with reason for failure
     """
+    result = {
+        "is_live": False,
+        "reason": "unknown",
+        "content_type": None
+    }
+    
     try:
-        # Audio content types that indicate a valid stream
-        audio_types = [
-            'audio/', 'application/ogg', 'application/octet-stream',
-            'video/mp4', 'application/x-mpegurl', 'application/vnd.apple.mpegurl',
-            'audio/x-mpegurl', 'audio/mpegurl'
-        ]
-        
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'audio/mpeg,audio/*,*/*',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': '*/*',
+            'Accept-Encoding': 'identity',
+            'Connection': 'keep-alive',
             'Icy-MetaData': '1'
         }
         
+        # Playable audio content types
+        playable_types = [
+            'audio/mpeg', 'audio/mp3', 'audio/aac', 'audio/ogg', 
+            'audio/opus', 'audio/wav', 'audio/webm', 'audio/flac',
+            'application/ogg', 'audio/x-mpegurl', 'application/x-mpegurl',
+            'application/vnd.apple.mpegurl', 'audio/x-scpls'
+        ]
+        
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as http_client:
-            # First try HEAD request (fast, works for most servers)
-            try:
-                response = await http_client.head(url, headers=headers)
-                
-                if response.status_code < 400:
-                    content_type = response.headers.get('content-type', '').lower()
-                    
-                    # If we got audio content type from HEAD, it's likely live
-                    if any(audio_type in content_type for audio_type in audio_types):
-                        return True
-                    
-                    # Check for ICY headers (SHOUTcast/Icecast)
-                    if response.headers.get('icy-name') or response.headers.get('icy-genre'):
-                        return True
-                    
-            except Exception:
-                pass  # HEAD failed, try GET
-            
-            # Try GET with Range header to get just first bytes
-            try:
-                range_headers = {**headers, 'Range': 'bytes=0-512'}
-                
-                # Use stream=True and don't read all content
-                async with http_client.stream('GET', url, headers=range_headers) as response:
-                    if response.status_code >= 400:
-                        # Some servers don't like Range, try without
-                        pass
-                    else:
-                        content_type = response.headers.get('content-type', '').lower()
-                        
-                        # Check content type
-                        if any(audio_type in content_type for audio_type in audio_types):
-                            return True
-                        
-                        # Check ICY headers
-                        if response.headers.get('icy-name') or response.headers.get('icy-genre'):
-                            return True
-                        
-                        # If status is OK, try to read a small chunk
-                        if response.status_code in [200, 206]:
-                            try:
-                                chunk = await response.aread()
-                                if len(chunk) > 0:
-                                    return True
-                            except Exception:
-                                # Streaming response, assume it's working
-                                return True
-                        
-            except Exception:
-                pass
-            
-            # Last resort: simple GET without Range (for servers like BBC)
             try:
                 async with http_client.stream('GET', url, headers=headers) as response:
-                    if response.status_code < 400:
-                        content_type = response.headers.get('content-type', '').lower()
-                        if any(audio_type in content_type for audio_type in audio_types):
-                            return True
-                        # Try reading a tiny bit
-                        try:
-                            async for chunk in response.aiter_bytes(512):
-                                if len(chunk) > 0:
-                                    return True
+                    if response.status_code >= 400:
+                        result["reason"] = f"http_{response.status_code}"
+                        return result
+                    
+                    content_type = response.headers.get('content-type', '').lower().split(';')[0].strip()
+                    result["content_type"] = content_type
+                    
+                    # Check ICY headers - strong indicator of live stream
+                    icy_name = response.headers.get('icy-name')
+                    icy_br = response.headers.get('icy-br')
+                    
+                    if icy_name or icy_br:
+                        result["is_live"] = True
+                        result["reason"] = "icy_stream"
+                        return result
+                    
+                    # Check if content type is playable
+                    is_audio_type = any(t in content_type for t in playable_types) or 'audio/' in content_type
+                    
+                    if 'text/html' in content_type or 'text/plain' in content_type:
+                        result["reason"] = "not_audio"
+                        return result
+                    
+                    # Read audio data for validation
+                    audio_data = b''
+                    bytes_read = 0
+                    
+                    try:
+                        async for chunk in response.aiter_bytes(4096):
+                            audio_data += chunk
+                            bytes_read += len(chunk)
+                            if bytes_read >= 4096:
                                 break
-                        except Exception:
-                            return True  # Stream started sending
-            except Exception:
-                return False
-            
-            return False
-            
-    except httpx.TimeoutException:
-        return False
+                    except Exception:
+                        if bytes_read == 0:
+                            result["reason"] = "no_data"
+                            return result
+                    
+                    if bytes_read == 0:
+                        result["reason"] = "empty_response"
+                        return result
+                    
+                    # Validate audio signatures
+                    is_valid_audio = False
+                    
+                    # MP3: ID3 tag or frame sync
+                    if audio_data[:3] == b'ID3':
+                        is_valid_audio = True
+                    elif len(audio_data) >= 2:
+                        # MP3 frame sync patterns
+                        for i in range(min(512, len(audio_data) - 1)):
+                            if audio_data[i] == 0xFF and (audio_data[i+1] & 0xE0) == 0xE0:
+                                is_valid_audio = True
+                                break
+                    
+                    # OGG
+                    if audio_data[:4] == b'OggS':
+                        is_valid_audio = True
+                    
+                    # FLAC
+                    if audio_data[:4] == b'fLaC':
+                        is_valid_audio = True
+                    
+                    # AAC ADTS
+                    if len(audio_data) >= 2 and audio_data[0] == 0xFF and (audio_data[1] & 0xF0) == 0xF0:
+                        is_valid_audio = True
+                    
+                    # WAV/RIFF
+                    if audio_data[:4] == b'RIFF':
+                        is_valid_audio = True
+                    
+                    # If we found valid audio signatures
+                    if is_valid_audio:
+                        result["is_live"] = True
+                        result["reason"] = "valid_audio"
+                        return result
+                    
+                    # If content-type says audio but no signature found
+                    if is_audio_type and bytes_read >= 100:
+                        # Check if it's binary data (not text)
+                        non_printable = sum(1 for b in audio_data[:200] if b < 32 or b > 126)
+                        if non_printable > 40:  # >20% non-printable
+                            result["is_live"] = True
+                            result["reason"] = "binary_audio"
+                            return result
+                    
+                    # application/octet-stream with binary data
+                    if 'octet-stream' in content_type and bytes_read >= 100:
+                        non_printable = sum(1 for b in audio_data[:200] if b < 32 or b > 126)
+                        if non_printable > 40:
+                            result["is_live"] = True
+                            result["reason"] = "octet_stream"
+                            return result
+                    
+                    result["reason"] = "invalid_audio"
+                    return result
+                    
+            except httpx.TimeoutException:
+                result["reason"] = "timeout"
+                return result
+            except httpx.ConnectError:
+                result["reason"] = "connect_failed"
+                return result
+            except Exception as e:
+                result["reason"] = f"error:{str(e)[:30]}"
+                return result
+                
     except Exception as e:
-        logger.debug(f"Stream verification failed for {url}: {e}")
-        return False
+        result["reason"] = f"error:{str(e)[:30]}"
+        return result
+    
+    return result
+
+
+async def verify_stream_simple(url: str, timeout: float = 10.0) -> bool:
+    """Simple boolean wrapper for backward compatibility"""
+    result = await verify_stream_url(url, timeout)
+    return result["is_live"]
 
 class StationVerifyRequest(BaseModel):
     stations: List[dict]
