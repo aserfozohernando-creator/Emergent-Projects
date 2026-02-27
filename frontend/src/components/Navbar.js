@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Globe, Music2, Heart, Radio } from 'lucide-react';
+import { Globe, Music2, Heart, Radio, Headphones } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import AlarmButton from './AlarmButton';
 
@@ -12,6 +12,7 @@ const Navbar = () => {
   const navItems = [
     { path: '/', icon: Globe, label: 'Explore' },
     { path: '/genres', icon: Music2, label: 'Genres' },
+    { path: '/podcasts', icon: Headphones, label: 'Podcasts' },
     { path: '/favorites', icon: Heart, label: 'Favorites' }
   ];
 
