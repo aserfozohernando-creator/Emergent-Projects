@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Globe, TrendingUp, RefreshCw, Bell } from 'lucide-react';
+import { Globe, TrendingUp, RefreshCw, Bell, Loader2, RotateCcw, Wifi, WifiOff } from 'lucide-react';
 import WorldMap from '../components/WorldMap';
 import StationCard from '../components/StationCard';
 import SearchBar from '../components/SearchBar';
@@ -12,20 +12,33 @@ import RelatedPodcasts from '../components/RelatedPodcasts';
 import { Button } from '../components/ui/button';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Skeleton } from '../components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import { usePlayer } from '../context/PlayerContext';
+import { useLocalData } from '../context/LocalDataContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const HomePage = () => {
   const { requestNotificationPermission } = usePlayer();
+  const { 
+    favorites, 
+    isFavorite, 
+    toggleFavorite,
+    stationLiveStatus,
+    batchUpdateLiveStatus,
+    getLiveStatus,
+    isCheckingStations,
+    setIsCheckingStations
+  } = useLocalData();
+  
   const [stations, setStations] = useState([]);
-  const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     'Notification' in window && Notification.permission === 'granted'
   );
+  const [verifyingRed, setVerifyingRed] = useState(false);
 
   const enableNotifications = async () => {
     const granted = await requestNotificationPermission();
@@ -35,6 +48,131 @@ const HomePage = () => {
     }
   };
 
+  // Sort stations: live first, then offline at bottom
+  const sortedStations = useMemo(() => {
+    if (!stations.length) return [];
+    
+    return [...stations].sort((a, b) => {
+      const statusA = getLiveStatus(a.stationuuid);
+      const statusB = getLiveStatus(b.stationuuid);
+      
+      // If both have status, sort live to top
+      if (statusA && statusB) {
+        if (statusA.isLive && !statusB.isLive) return -1;
+        if (!statusA.isLive && statusB.isLive) return 1;
+      }
+      // If only one has status
+      if (statusA && !statusB) {
+        return statusA.isLive ? -1 : 1;
+      }
+      if (!statusA && statusB) {
+        return statusB.isLive ? 1 : -1;
+      }
+      
+      return 0; // Keep original order for unknown status
+    });
+  }, [stations, stationLiveStatus, getLiveStatus]);
+
+  // Get count of live/offline stations
+  const stationStats = useMemo(() => {
+    let live = 0;
+    let offline = 0;
+    let unchecked = 0;
+    
+    stations.forEach(s => {
+      const status = getLiveStatus(s.stationuuid);
+      if (!status) unchecked++;
+      else if (status.isLive) live++;
+      else offline++;
+    });
+    
+    return { live, offline, unchecked };
+  }, [stations, getLiveStatus]);
+
+  // Background check stations
+  const checkStationsHealth = useCallback(async (stationsToCheck) => {
+    if (!stationsToCheck.length || isCheckingStations) return;
+    
+    setIsCheckingStations(true);
+    
+    try {
+      const response = await axios.post(`${API}/stations/verify-batch`, {
+        stations: stationsToCheck.map(s => ({
+          stationuuid: s.stationuuid,
+          url: s.url,
+          url_resolved: s.url_resolved
+        }))
+      });
+      
+      const statusUpdates = {};
+      response.data.forEach(result => {
+        statusUpdates[result.stationuuid] = {
+          isLive: result.is_live,
+          checkedAt: Date.now()
+        };
+      });
+      
+      batchUpdateLiveStatus(statusUpdates);
+      
+      const liveCount = response.data.filter(r => r.is_live).length;
+      const offlineCount = response.data.filter(r => !r.is_live).length;
+      
+      if (offlineCount > 0) {
+        toast.info(`${liveCount} live, ${offlineCount} offline stations`);
+      }
+    } catch (error) {
+      console.error('Failed to check stations:', error);
+    } finally {
+      setIsCheckingStations(false);
+    }
+  }, [isCheckingStations, setIsCheckingStations, batchUpdateLiveStatus]);
+
+  // Re-verify offline stations
+  const reverifyOfflineStations = useCallback(async () => {
+    const offlineStations = stations.filter(s => {
+      const status = getLiveStatus(s.stationuuid);
+      return status && !status.isLive;
+    });
+    
+    if (!offlineStations.length) {
+      toast.info('No offline stations to re-verify');
+      return;
+    }
+    
+    setVerifyingRed(true);
+    
+    try {
+      const response = await axios.post(`${API}/stations/verify-batch`, {
+        stations: offlineStations.map(s => ({
+          stationuuid: s.stationuuid,
+          url: s.url,
+          url_resolved: s.url_resolved
+        }))
+      });
+      
+      const statusUpdates = {};
+      response.data.forEach(result => {
+        statusUpdates[result.stationuuid] = {
+          isLive: result.is_live,
+          checkedAt: Date.now()
+        };
+      });
+      
+      batchUpdateLiveStatus(statusUpdates);
+      
+      const nowLive = response.data.filter(r => r.is_live).length;
+      if (nowLive > 0) {
+        toast.success(`${nowLive} station(s) now live!`);
+      } else {
+        toast.info('All re-verified stations still offline');
+      }
+    } catch (error) {
+      toast.error('Failed to re-verify stations');
+    } finally {
+      setVerifyingRed(false);
+    }
+  }, [stations, getLiveStatus, batchUpdateLiveStatus]);
+
   const fetchTopStations = useCallback(async () => {
     setLoading(true);
     try {
@@ -42,12 +180,14 @@ const HomePage = () => {
         params: { limit: 30 }
       });
       setStations(response.data);
+      // Check stations health in background after loading
+      setTimeout(() => checkStationsHealth(response.data), 500);
     } catch (error) {
       toast.error('Failed to load stations');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkStationsHealth]);
 
   const fetchStationsByRegion = useCallback(async (region) => {
     setLoading(true);
@@ -58,12 +198,14 @@ const HomePage = () => {
       });
       setStations(response.data);
       toast.success(`Showing stations from ${region.charAt(0).toUpperCase() + region.slice(1)}`);
+      // Check stations health in background
+      setTimeout(() => checkStationsHealth(response.data), 500);
     } catch (error) {
       toast.error('Failed to load regional stations');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkStationsHealth]);
 
   const fetchStationsByCountry = useCallback(async (countryCode, countryName) => {
     setLoading(true);
@@ -74,12 +216,14 @@ const HomePage = () => {
       });
       setStations(response.data);
       toast.success(`Showing stations from ${countryName}`);
+      // Check stations health in background
+      setTimeout(() => checkStationsHealth(response.data), 500);
     } catch (error) {
       toast.error('Failed to load stations');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkStationsHealth]);
 
   const searchStations = useCallback(async (query) => {
     if (!query) {
@@ -97,52 +241,20 @@ const HomePage = () => {
       setStations(response.data);
       if (response.data.length === 0) {
         toast.info('No stations found');
+      } else {
+        // Check stations health in background
+        setTimeout(() => checkStationsHealth(response.data), 500);
       }
     } catch (error) {
       toast.error('Search failed');
     } finally {
       setLoading(false);
     }
-  }, [fetchTopStations]);
-
-  const fetchFavorites = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API}/favorites`);
-      setFavorites(response.data.map(f => f.stationuuid));
-    } catch (error) {
-      console.error('Failed to fetch favorites');
-    }
-  }, []);
-
-  const toggleFavorite = async (station) => {
-    const isFavorite = favorites.includes(station.stationuuid);
-    try {
-      if (isFavorite) {
-        await axios.delete(`${API}/favorites/${station.stationuuid}`);
-        setFavorites(prev => prev.filter(id => id !== station.stationuuid));
-        toast.success('Removed from favorites');
-      } else {
-        await axios.post(`${API}/favorites`, {
-          stationuuid: station.stationuuid,
-          name: station.name,
-          url: station.url_resolved || station.url,
-          favicon: station.favicon,
-          country: station.country,
-          countrycode: station.countrycode,
-          tags: station.tags
-        });
-        setFavorites(prev => [...prev, station.stationuuid]);
-        toast.success('Added to favorites');
-      }
-    } catch (error) {
-      toast.error('Failed to update favorites');
-    }
-  };
+  }, [fetchTopStations, checkStationsHealth]);
 
   useEffect(() => {
     fetchTopStations();
-    fetchFavorites();
-  }, [fetchTopStations, fetchFavorites]);
+  }, []);
 
   const handleRegionClick = (region) => {
     fetchStationsByRegion(region);
@@ -152,6 +264,10 @@ const HomePage = () => {
     setSelectedRegion(null);
     setSearchQuery('');
     fetchTopStations();
+  };
+
+  const handleToggleFavorite = (station) => {
+    toggleFavorite(station);
   };
 
   return (
@@ -258,7 +374,7 @@ const HomePage = () => {
 
             {/* Stations Section */}
             <div className="w-full lg:w-2/5 xl:w-1/3 flex flex-col">
-              {/* Header */}
+              {/* Header with status indicators */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   {selectedRegion ? (
@@ -275,18 +391,85 @@ const HomePage = () => {
                     }
                   </h2>
                 </div>
-                {(selectedRegion || searchQuery) && (
-                  <Button
-                    data-testid="reset-stations"
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetToTop}
-                    className="text-xs h-8"
-                  >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Reset
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {/* Station status indicators */}
+                  {!loading && stations.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs">
+                      {isCheckingStations ? (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Checking...
+                        </span>
+                      ) : (
+                        <>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="flex items-center gap-0.5 text-green-500">
+                                  <Wifi className="w-3 h-3" />
+                                  {stationStats.live}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>Live stations</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {stationStats.offline > 0 && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-0.5 text-red-500">
+                                    <WifiOff className="w-3 h-3" />
+                                    {stationStats.offline}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>Offline stations</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Re-verify button for offline stations */}
+                  {stationStats.offline > 0 && !isCheckingStations && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            data-testid="reverify-offline-btn"
+                            variant="ghost"
+                            size="sm"
+                            onClick={reverifyOfflineStations}
+                            disabled={verifyingRed}
+                            className="h-7 px-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                          >
+                            {verifyingRed ? (
+                              <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3 mr-1" />
+                            )}
+                            Re-verify
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Re-check offline stations</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  
+                  {(selectedRegion || searchQuery) && (
+                    <Button
+                      data-testid="reset-stations"
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetToTop}
+                      className="text-xs h-7"
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Reset
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Station List - Responsive height */}
@@ -314,12 +497,13 @@ const HomePage = () => {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {stations.map((station) => (
+                        {sortedStations.map((station) => (
                           <StationCard
                             key={station.stationuuid}
                             station={station}
-                            isFavorite={favorites.includes(station.stationuuid)}
-                            onToggleFavorite={toggleFavorite}
+                            isFavorite={isFavorite(station.stationuuid)}
+                            onToggleFavorite={handleToggleFavorite}
+                            liveStatus={getLiveStatus(station.stationuuid)}
                           />
                         ))}
                       </div>
@@ -329,8 +513,8 @@ const HomePage = () => {
 
                 {/* Similar Stations */}
                 <SimilarStations 
-                  favorites={favorites}
-                  onToggleFavorite={toggleFavorite}
+                  favorites={favorites.map(f => f.stationuuid)}
+                  onToggleFavorite={handleToggleFavorite}
                 />
 
                 {/* Related Podcasts */}
@@ -341,8 +525,8 @@ const HomePage = () => {
 
           {/* Recently Played History */}
           <HistorySection 
-            favorites={favorites}
-            onToggleFavorite={toggleFavorite}
+            favorites={favorites.map(f => f.stationuuid)}
+            onToggleFavorite={handleToggleFavorite}
           />
         </div>
       </div>
