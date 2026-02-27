@@ -541,7 +541,7 @@ async def verify_stations_batch(request: StationVerifyRequest):
         batch_results = await asyncio.gather(*tasks, return_exceptions=True)
         
         for result in batch_results:
-            if isinstance(result, StationVerifyResult):
+            if isinstance(result, dict):
                 results.append(result)
             elif isinstance(result, Exception):
                 logger.debug(f"Station check failed: {result}")
@@ -550,13 +550,15 @@ async def verify_stations_batch(request: StationVerifyRequest):
 
 @api_router.get("/stations/verify/{stationuuid}")
 async def verify_single_station(stationuuid: str, url: str = Query(...)):
-    """Verify a single station's stream URL - useful for quick re-checks"""
-    is_live = await verify_stream_url(url, timeout=15.0)
-    return StationVerifyResult(
-        stationuuid=stationuuid,
-        is_live=is_live,
-        checked_at=datetime.now(timezone.utc).isoformat()
-    )
+    """Verify a single station's stream URL with detailed result"""
+    verification = await verify_stream_url(url, timeout=15.0)
+    return {
+        "stationuuid": stationuuid,
+        "is_live": verification["is_live"],
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "reason": verification.get("reason"),
+        "content_type": verification.get("content_type")
+    }
 
 async def get_combined_stations(
     name: str = None,
