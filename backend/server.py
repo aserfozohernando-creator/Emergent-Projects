@@ -342,7 +342,7 @@ class StationVerifyResult(BaseModel):
 
 @api_router.post("/stations/verify-batch", response_model=List[StationVerifyResult])
 async def verify_stations_batch(request: StationVerifyRequest):
-    """Verify multiple stations' stream URLs in parallel"""
+    """Verify multiple stations' stream URLs in parallel with robust checking"""
     results = []
     
     async def check_station(station):
@@ -352,15 +352,16 @@ async def verify_stations_batch(request: StationVerifyRequest):
         if not url or not stationuuid:
             return None
         
-        is_live = await verify_stream_url(url, timeout=8.0)
+        # Use longer timeout for more reliable results
+        is_live = await verify_stream_url(url, timeout=12.0)
         return StationVerifyResult(
             stationuuid=stationuuid,
             is_live=is_live,
             checked_at=datetime.now(timezone.utc).isoformat()
         )
     
-    # Process stations in batches of 10 to avoid overwhelming
-    batch_size = 10
+    # Process stations in smaller batches to avoid overwhelming and reduce timeouts
+    batch_size = 5
     stations = request.stations[:50]  # Limit to 50 stations max
     
     for i in range(0, len(stations), batch_size):
@@ -371,6 +372,8 @@ async def verify_stations_batch(request: StationVerifyRequest):
         for result in batch_results:
             if isinstance(result, StationVerifyResult):
                 results.append(result)
+            elif isinstance(result, Exception):
+                logger.debug(f"Station check failed: {result}")
     
     return results
 
