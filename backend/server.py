@@ -506,10 +506,12 @@ class StationVerifyResult(BaseModel):
     stationuuid: str
     is_live: bool
     checked_at: str
+    reason: Optional[str] = None
+    content_type: Optional[str] = None
 
-@api_router.post("/stations/verify-batch", response_model=List[StationVerifyResult])
+@api_router.post("/stations/verify-batch")
 async def verify_stations_batch(request: StationVerifyRequest):
-    """Verify multiple stations' stream URLs in parallel with robust checking"""
+    """Verify multiple stations' stream URLs with comprehensive audio validation"""
     results = []
     
     async def check_station(station):
@@ -519,13 +521,15 @@ async def verify_stations_batch(request: StationVerifyRequest):
         if not url or not stationuuid:
             return None
         
-        # Use longer timeout for more reliable results
-        is_live = await verify_stream_url(url, timeout=12.0)
-        return StationVerifyResult(
-            stationuuid=stationuuid,
-            is_live=is_live,
-            checked_at=datetime.now(timezone.utc).isoformat()
-        )
+        # Use comprehensive verification
+        verification = await verify_stream_url(url, timeout=12.0)
+        return {
+            "stationuuid": stationuuid,
+            "is_live": verification["is_live"],
+            "checked_at": datetime.now(timezone.utc).isoformat(),
+            "reason": verification.get("reason"),
+            "content_type": verification.get("content_type")
+        }
     
     # Process stations in smaller batches to avoid overwhelming and reduce timeouts
     batch_size = 5
