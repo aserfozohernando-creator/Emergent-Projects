@@ -82,6 +82,32 @@ class FavoriteCreate(BaseModel):
     countrycode: str
     tags: Optional[str] = ""
 
+class Podcast(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    title: str
+    description: Optional[str] = ""
+    author: Optional[str] = ""
+    image: Optional[str] = ""
+    url: str
+    feed_url: Optional[str] = ""
+    categories: Optional[str] = ""
+    language: Optional[str] = ""
+    episode_count: int = 0
+
+class PodcastEpisode(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    title: str
+    description: Optional[str] = ""
+    audio_url: str
+    duration: Optional[int] = 0
+    published: Optional[str] = ""
+    image: Optional[str] = ""
+
+# Podcast API (iTunes/Apple Podcasts Search API - Free)
+ITUNES_PODCAST_API = "https://itunes.apple.com"
+
 # Region to countries mapping
 REGIONS = {
     "europe": ["DE", "FR", "GB", "IT", "ES", "NL", "BE", "PL", "SE", "NO", "DK", "FI", "AT", "CH", "PT", "IE", "GR", "CZ", "HU", "RO", "UA", "SK", "BG", "HR", "RS", "SI", "LT", "LV", "EE"],
