@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
 import { PlayerProvider } from './context/PlayerContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { LocalDataProvider } from './context/LocalDataContext';
 import Navbar from './components/Navbar';
 import AudioPlayer from './components/AudioPlayer';
 import HomePage from './pages/HomePage';
