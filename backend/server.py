@@ -285,7 +285,7 @@ async def verify_stream_url(url: str, timeout: float = 8.0) -> bool:
         
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': '*/*',
+            'Accept': 'audio/mpeg,audio/*,*/*',
             'Icy-MetaData': '1'
         }
         
@@ -294,21 +294,19 @@ async def verify_stream_url(url: str, timeout: float = 8.0) -> bool:
             try:
                 response = await http_client.head(url, headers=headers)
                 
-                if response.status_code >= 400:
-                    return False
-                
-                content_type = response.headers.get('content-type', '').lower()
-                
-                # If we got audio content type from HEAD, it's likely live
-                if any(audio_type in content_type for audio_type in audio_types):
-                    return True
-                
-                # Check for ICY headers (SHOUTcast/Icecast)
-                if response.headers.get('icy-name') or response.headers.get('icy-genre'):
-                    return True
+                if response.status_code < 400:
+                    content_type = response.headers.get('content-type', '').lower()
+                    
+                    # If we got audio content type from HEAD, it's likely live
+                    if any(audio_type in content_type for audio_type in audio_types):
+                        return True
+                    
+                    # Check for ICY headers (SHOUTcast/Icecast)
+                    if response.headers.get('icy-name') or response.headers.get('icy-genre'):
+                        return True
                     
             except Exception:
-                pass  # HEAD failed, try GET with Range
+                pass  # HEAD failed, try GET
             
             # Try GET with Range header to get just first bytes
             try:
@@ -317,30 +315,47 @@ async def verify_stream_url(url: str, timeout: float = 8.0) -> bool:
                 # Use stream=True and don't read all content
                 async with http_client.stream('GET', url, headers=range_headers) as response:
                     if response.status_code >= 400:
-                        return False
-                    
-                    content_type = response.headers.get('content-type', '').lower()
-                    
-                    # Check content type
-                    if any(audio_type in content_type for audio_type in audio_types):
-                        return True
-                    
-                    # Check ICY headers
-                    if response.headers.get('icy-name') or response.headers.get('icy-genre'):
-                        return True
-                    
-                    # Try to read a small chunk to verify stream is actually sending data
-                    try:
-                        chunk = await response.aread()
-                        if len(chunk) > 0:
-                            return True
-                    except Exception:
+                        # Some servers don't like Range, try without
                         pass
-                    
-                    # If status is OK and it's a stream, assume it works
-                    if response.status_code in [200, 206]:
-                        return True
+                    else:
+                        content_type = response.headers.get('content-type', '').lower()
                         
+                        # Check content type
+                        if any(audio_type in content_type for audio_type in audio_types):
+                            return True
+                        
+                        # Check ICY headers
+                        if response.headers.get('icy-name') or response.headers.get('icy-genre'):
+                            return True
+                        
+                        # If status is OK, try to read a small chunk
+                        if response.status_code in [200, 206]:
+                            try:
+                                chunk = await response.aread()
+                                if len(chunk) > 0:
+                                    return True
+                            except Exception:
+                                # Streaming response, assume it's working
+                                return True
+                        
+            except Exception:
+                pass
+            
+            # Last resort: simple GET without Range (for servers like BBC)
+            try:
+                async with http_client.stream('GET', url, headers=headers) as response:
+                    if response.status_code < 400:
+                        content_type = response.headers.get('content-type', '').lower()
+                        if any(audio_type in content_type for audio_type in audio_types):
+                            return True
+                        # Try reading a tiny bit
+                        try:
+                            async for chunk in response.aiter_bytes(512):
+                                if len(chunk) > 0:
+                                    return True
+                                break
+                        except Exception:
+                            return True  # Stream started sending
             except Exception:
                 return False
             
