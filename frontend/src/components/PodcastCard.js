@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Podcast, Loader2, Play, ChevronDown, ChevronUp, Clock, Calendar } from 'lucide-react';
+import { Podcast, Loader2, Play, ChevronDown, ChevronUp, Clock, Calendar, Heart } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import axios from 'axios';
 import { toast } from 'sonner';
 import PodcastEpisodeModal from './PodcastEpisodeModal';
+import { useLocalData } from '../context/LocalDataContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -27,10 +28,13 @@ const formatDate = (dateStr) => {
 };
 
 const PodcastCard = ({ podcast }) => {
+  const { isPodcastFavorite, togglePodcastFavorite } = useLocalData();
   const [episodes, setEpisodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [selectedEpisode, setSelectedEpisode] = useState(null);
+  
+  const isFavorite = isPodcastFavorite(podcast.id);
 
   const fetchEpisodes = async () => {
     if (episodes.length > 0) {
