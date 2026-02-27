@@ -6,7 +6,7 @@ import { Badge } from './ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import StationDetailsModal from './StationDetailsModal';
 
-const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
+const StationCard = ({ station, isFavorite, onToggleFavorite, liveStatus }) => {
   const { currentStation, isPlaying, isLoading, playStation, getStationHealthStatus } = usePlayer();
   const [showDetails, setShowDetails] = useState(false);
   
@@ -14,13 +14,16 @@ const StationCard = ({ station, isFavorite, onToggleFavorite }) => {
   const isCurrentPlaying = isCurrentStation && isPlaying;
   const isCurrentLoading = isCurrentStation && isLoading;
   
-  const healthStatus = getStationHealthStatus(station.stationuuid);
+  // Use passed liveStatus (from background check) or fall back to player health status
+  const healthStatus = liveStatus 
+    ? (liveStatus.isLive ? 'good' : 'poor')
+    : getStationHealthStatus(station.stationuuid);
   
   const healthConfig = {
-    good: { color: 'bg-green-500', ring: 'ring-green-500/30', icon: Wifi, label: 'Reliable stream' },
+    good: { color: 'bg-green-500', ring: 'ring-green-500/30', icon: Wifi, label: 'Live - Stream available' },
     fair: { color: 'bg-yellow-500', ring: 'ring-yellow-500/30', icon: Wifi, label: 'Sometimes unstable' },
-    poor: { color: 'bg-red-500', ring: 'ring-red-500/30', icon: WifiOff, label: 'Often offline' },
-    unknown: { color: 'bg-gray-400', ring: 'ring-gray-400/30', icon: Wifi, label: 'Not tested yet' }
+    poor: { color: 'bg-red-500', ring: 'ring-red-500/30', icon: WifiOff, label: 'Offline - Not responding' },
+    unknown: { color: 'bg-gray-400', ring: 'ring-gray-400/30', icon: Wifi, label: 'Not checked yet' }
   };
 
   const health = healthConfig[healthStatus];
