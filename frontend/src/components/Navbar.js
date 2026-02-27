@@ -1,6 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Globe, Music2, Heart, Radio } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
+import AlarmButton from './AlarmButton';
 
 const Navbar = () => {
   const location = useLocation();
@@ -44,6 +46,15 @@ const Navbar = () => {
               <span className="hidden sm:block font-medium">{label}</span>
             </Link>
           ))}
+          
+          {/* Divider */}
+          <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block" />
+          
+          {/* Alarm Button */}
+          <AlarmButton />
+          
+          {/* Theme Toggle */}
+          <ThemeToggle />
         </div>
       </div>
     </nav>
