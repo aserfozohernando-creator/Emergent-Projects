@@ -279,6 +279,48 @@ async def verify_stream_url(url: str, timeout: float = 5.0) -> bool:
     except Exception:
         return False
 
+class StationVerifyRequest(BaseModel):
+    stations: List[dict]
+
+class StationVerifyResult(BaseModel):
+    stationuuid: str
+    is_live: bool
+    checked_at: str
+
+@api_router.post("/stations/verify-batch", response_model=List[StationVerifyResult])
+async def verify_stations_batch(request: StationVerifyRequest):
+    """Verify multiple stations' stream URLs in parallel"""
+    results = []
+    
+    async def check_station(station):
+        url = station.get('url_resolved') or station.get('url', '')
+        stationuuid = station.get('stationuuid', '')
+        
+        if not url or not stationuuid:
+            return None
+        
+        is_live = await verify_stream_url(url, timeout=8.0)
+        return StationVerifyResult(
+            stationuuid=stationuuid,
+            is_live=is_live,
+            checked_at=datetime.now(timezone.utc).isoformat()
+        )
+    
+    # Process stations in batches of 10 to avoid overwhelming
+    batch_size = 10
+    stations = request.stations[:50]  # Limit to 50 stations max
+    
+    for i in range(0, len(stations), batch_size):
+        batch = stations[i:i + batch_size]
+        tasks = [check_station(s) for s in batch]
+        batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for result in batch_results:
+            if isinstance(result, StationVerifyResult):
+                results.append(result)
+    
+    return results
+
 async def get_combined_stations(
     name: str = None,
     country: str = None,
