@@ -8,6 +8,7 @@ import AudioPlayer from './components/AudioPlayer';
 import HomePage from './pages/HomePage';
 import GenresPage from './pages/GenresPage';
 import FavoritesPage from './pages/FavoritesPage';
+import PodcastsPage from './pages/PodcastsPage';
 import './App.css';
 
 // Register service worker for PWA
