@@ -1,0 +1,17 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-02-27T17:54:14.931Z",
+  "favorites": [
+    {
+      "stationuuid": "78012206-1aa1-11e9-a80b-52543be04c81",
+      "name": "MANGORADIO",
+      "url": "https://mangoradio.stream.laut.fm/mangoradio",
+      "favicon": "https://mangoradio.de/wp-content/uploads/cropped-Logo-192x192.webp",
+      "country": "Germany",
+      "countrycode": "DE",
+      "tags": "music,variety",
+      "addedAt": "2026-02-27T17:54:10.071Z"
+    }
+  ],
+  "podcastFavorites": []
+}
