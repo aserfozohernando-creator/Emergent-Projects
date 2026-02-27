@@ -148,15 +148,20 @@ export const PlayerProvider = ({ children }) => {
 
   // Sleep timer functions
   const startSleepTimer = useCallback((minutes) => {
-    // Clear existing timer
+    // Clear existing timers first
     if (sleepTimerRef.current) {
       clearTimeout(sleepTimerRef.current);
+      sleepTimerRef.current = null;
     }
     if (sleepIntervalRef.current) {
       clearInterval(sleepIntervalRef.current);
+      sleepIntervalRef.current = null;
     }
 
-    const endTime = Date.now() + minutes * 60 * 1000;
+    const durationMs = minutes * 60 * 1000;
+    const endTime = Date.now() + durationMs;
+    
+    // Set initial state
     setSleepTimer(minutes);
     setSleepTimeRemaining(minutes * 60);
 
@@ -164,19 +169,41 @@ export const PlayerProvider = ({ children }) => {
     sleepIntervalRef.current = setInterval(() => {
       const remaining = Math.max(0, Math.floor((endTime - Date.now()) / 1000));
       setSleepTimeRemaining(remaining);
+      
       if (remaining <= 0) {
-        clearInterval(sleepIntervalRef.current);
+        if (sleepIntervalRef.current) {
+          clearInterval(sleepIntervalRef.current);
+          sleepIntervalRef.current = null;
+        }
       }
     }, 1000);
 
     // Stop playback when timer ends
     sleepTimerRef.current = setTimeout(() => {
-      audioRef.current.pause();
+      // Stop audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
       setIsPlaying(false);
       setSleepTimer(null);
       setSleepTimeRemaining(null);
+      
+      // Clear interval if still running
+      if (sleepIntervalRef.current) {
+        clearInterval(sleepIntervalRef.current);
+        sleepIntervalRef.current = null;
+      }
+      
       toast.info('Sleep timer ended. Goodnight! 🌙');
-    }, minutes * 60 * 1000);
+      
+      // Show notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Sleep Timer', {
+          body: 'Radio stopped. Goodnight! 🌙',
+          silent: false
+        });
+      }
+    }, durationMs);
 
     toast.success(`Sleep timer set for ${minutes} minutes`);
   }, []);
@@ -184,9 +211,11 @@ export const PlayerProvider = ({ children }) => {
   const cancelSleepTimer = useCallback(() => {
     if (sleepTimerRef.current) {
       clearTimeout(sleepTimerRef.current);
+      sleepTimerRef.current = null;
     }
     if (sleepIntervalRef.current) {
       clearInterval(sleepIntervalRef.current);
+      sleepIntervalRef.current = null;
     }
     setSleepTimer(null);
     setSleepTimeRemaining(null);
