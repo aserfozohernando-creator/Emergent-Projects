@@ -273,7 +273,7 @@ async def fetch_tunein_stations(query: str = None, genre: str = None, limit: int
 async def verify_stream_url(url: str, timeout: float = 8.0) -> bool:
     """
     Robust check if a stream URL is accessible and actually serving audio.
-    Uses GET with Range header to verify actual stream content.
+    Uses HEAD first, then GET with Range header if needed.
     """
     try:
         # Audio content types that indicate a valid stream
@@ -283,46 +283,66 @@ async def verify_stream_url(url: str, timeout: float = 8.0) -> bool:
             'audio/x-mpegurl', 'audio/mpegurl'
         ]
         
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': '*/*',
+            'Icy-MetaData': '1'
+        }
+        
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as http_client:
-            # Try GET with Range header to get just first bytes
-            # This is more reliable than HEAD for streaming servers
-            headers = {
-                'Range': 'bytes=0-1023',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': '*/*',
-                'Icy-MetaData': '1'  # Request ICY metadata (common for radio streams)
-            }
-            
+            # First try HEAD request (fast, works for most servers)
             try:
-                response = await http_client.get(url, headers=headers)
+                response = await http_client.head(url, headers=headers)
+                
+                if response.status_code >= 400:
+                    return False
+                
+                content_type = response.headers.get('content-type', '').lower()
+                
+                # If we got audio content type from HEAD, it's likely live
+                if any(audio_type in content_type for audio_type in audio_types):
+                    return True
+                
+                # Check for ICY headers (SHOUTcast/Icecast)
+                if response.headers.get('icy-name') or response.headers.get('icy-genre'):
+                    return True
+                    
             except Exception:
-                # Some servers reject Range requests, try without
-                response = await http_client.get(url, headers={'User-Agent': headers['User-Agent']})
+                pass  # HEAD failed, try GET with Range
             
-            # Check status code
-            if response.status_code >= 400:
+            # Try GET with Range header to get just first bytes
+            try:
+                range_headers = {**headers, 'Range': 'bytes=0-512'}
+                
+                # Use stream=True and don't read all content
+                async with http_client.stream('GET', url, headers=range_headers) as response:
+                    if response.status_code >= 400:
+                        return False
+                    
+                    content_type = response.headers.get('content-type', '').lower()
+                    
+                    # Check content type
+                    if any(audio_type in content_type for audio_type in audio_types):
+                        return True
+                    
+                    # Check ICY headers
+                    if response.headers.get('icy-name') or response.headers.get('icy-genre'):
+                        return True
+                    
+                    # Try to read a small chunk to verify stream is actually sending data
+                    try:
+                        chunk = await response.aread()
+                        if len(chunk) > 0:
+                            return True
+                    except Exception:
+                        pass
+                    
+                    # If status is OK and it's a stream, assume it works
+                    if response.status_code in [200, 206]:
+                        return True
+                        
+            except Exception:
                 return False
-            
-            # Check content type
-            content_type = response.headers.get('content-type', '').lower()
-            
-            # If we got audio content type, it's live
-            if any(audio_type in content_type for audio_type in audio_types):
-                return True
-            
-            # Check for ICY response headers (common for SHOUTcast/Icecast)
-            if response.headers.get('icy-name') or response.headers.get('icy-genre'):
-                return True
-            
-            # If content length is reasonable and status is OK, assume it works
-            # (Some streams don't set proper content-type)
-            if response.status_code in [200, 206]:
-                content_length = response.headers.get('content-length')
-                if content_length and int(content_length) > 0:
-                    return True
-                # For streaming (no content-length), check if we got any data
-                if len(response.content) > 0:
-                    return True
             
             return False
             
