@@ -134,6 +134,9 @@ const PodcastEpisodeModal = ({ episode, podcast, isOpen, onClose }) => {
           <DialogTitle className="text-base font-semibold pr-8 line-clamp-2">
             {episode.title}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Podcast episode player for {episode.title}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
