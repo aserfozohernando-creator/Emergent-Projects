@@ -274,7 +274,7 @@ async def verify_stream_url(url: str, timeout: float = 5.0) -> bool:
         async with httpx.AsyncClient(timeout=timeout) as http_client:
             response = await http_client.head(url, follow_redirects=True)
             return response.status_code < 400
-    except:
+    except Exception:
         return False
 
 async def get_combined_stations(
@@ -752,7 +752,7 @@ async def get_podcast_episodes(
                                 duration = int(parts[0]) * 60 + int(parts[1])
                         else:
                             duration = int(dur_text)
-                    except:
+                    except Exception:
                         pass
                 
                 # Get description
