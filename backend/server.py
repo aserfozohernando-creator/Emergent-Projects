@@ -186,9 +186,6 @@ class PodcastEpisode(BaseModel):
     published: Optional[str] = ""
     image: Optional[str] = ""
 
-# Podcast API (iTunes/Apple Podcasts Search API - Free)
-ITUNES_PODCAST_API = "https://itunes.apple.com"
-
 # Region to countries mapping
 REGIONS = {
     "europe": ["DE", "FR", "GB", "IT", "ES", "NL", "BE", "PL", "SE", "NO", "DK", "FI", "AT", "CH", "PT", "IE", "GR", "CZ", "HU", "RO", "UA", "SK", "BG", "HR", "RS", "SI", "LT", "LV", "EE"],
