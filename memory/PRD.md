@@ -95,6 +95,13 @@ Build a "Global Radio Station" application to listen to music from all over the 
    - Download icon (Export) visible in navbar on all pages
    - Upload icon (Import) visible in navbar on all pages
    - Easy access to backup/restore favorites from any page
+3. ✅ Improved Stream Verification (More Robust)
+   - Uses HEAD request first (fast)
+   - Falls back to GET with Range header
+   - Handles edge cases like BBC streams that need specific headers
+   - Detects audio content types and ICY headers
+   - Longer stall timeout (20s) for slow streams
+   - Better handling of streaming responses
 
 ### Testing Results
 - Backend: 100% (33/33 tests passed)
