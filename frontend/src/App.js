@@ -63,13 +63,15 @@ const AppContent = () => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <LocalDataProvider>
-        <PlayerProvider>
-          <AppContent />
-        </PlayerProvider>
-      </LocalDataProvider>
-    </ThemeProvider>
+    <ConfigProvider>
+      <ThemeProvider>
+        <LocalDataProvider>
+          <PlayerProvider>
+            <AppContent />
+          </PlayerProvider>
+        </LocalDataProvider>
+      </ThemeProvider>
+    </ConfigProvider>
   );
 }
 
