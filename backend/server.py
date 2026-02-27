@@ -57,6 +57,7 @@ api_router = APIRouter(prefix="/api")
 RADIO_BROWSER_API = "https://de1.api.radio-browser.info/json"
 RADIO_BROWSER_API_BACKUP = "https://nl1.api.radio-browser.info/json"
 TUNEIN_API = "https://opml.radiotime.com"
+ITUNES_PODCAST_API = "https://itunes.apple.com"
 
 # Configure logging
 logging.basicConfig(
@@ -64,6 +65,61 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ============== Configuration Endpoints ==============
+
+class ConfigUpdate(BaseModel):
+    """Model for updating specific config values"""
+    path: str  # e.g., "features.favorites.max_stations"
+    value: Any  # The new value
+
+@api_router.get("/config")
+async def get_config():
+    """Get the full application configuration"""
+    config = load_config()
+    if not config:
+        raise HTTPException(status_code=500, detail="Failed to load configuration")
+    return config
+
+@api_router.get("/config/{section}")
+async def get_config_section(section: str):
+    """Get a specific section of the configuration"""
+    config = load_config()
+    if section not in config:
+        raise HTTPException(status_code=404, detail=f"Config section '{section}' not found")
+    return {section: config[section]}
+
+@api_router.put("/config")
+async def update_config(updates: List[ConfigUpdate]):
+    """Update specific configuration values by path"""
+    config = load_config()
+    
+    for update in updates:
+        # Parse the path (e.g., "features.favorites.max_stations")
+        keys = update.path.split('.')
+        
+        # Navigate to the parent
+        current = config
+        for key in keys[:-1]:
+            if key not in current:
+                current[key] = {}
+            current = current[key]
+        
+        # Set the value
+        current[keys[-1]] = update.value
+    
+    if save_config(config):
+        return {"message": "Configuration updated", "updated_paths": [u.path for u in updates]}
+    else:
+        raise HTTPException(status_code=500, detail="Failed to save configuration")
+
+@api_router.post("/config/reset")
+async def reset_config():
+    """Reset configuration to defaults (reloads from file)"""
+    config = load_config()
+    return {"message": "Configuration reloaded", "config": config}
+
+# ============== Models ==============
 
 # Models
 class Station(BaseModel):
