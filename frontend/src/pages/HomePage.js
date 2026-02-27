@@ -325,6 +325,12 @@ const HomePage = () => {
                     )}
                   </div>
                 </ScrollArea>
+
+                {/* Similar Stations */}
+                <SimilarStations 
+                  favorites={favorites}
+                  onToggleFavorite={toggleFavorite}
+                />
               </div>
             </div>
           </div>
